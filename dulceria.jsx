@@ -37,8 +37,9 @@ function BadgePromo({ text }) {
 }
 
 /* ---------- Image Modal ---------- */
-function ImageWithModal({ src, alt, className = 'w-[68%] max-w-[200px] h-36 mx-auto', imgClass = 'object-contain' }) {
+function ImageWithModal({ src, alt }) {
   const [open, setOpen] = useState(false);
+
   useEffect(() => {
     function onKey(e) { if (e.key === 'Escape') setOpen(false); }
     if (open) window.addEventListener('keydown', onKey);
@@ -48,28 +49,28 @@ function ImageWithModal({ src, alt, className = 'w-[68%] max-w-[200px] h-36 mx-a
   return (
     <>
       <button
-        onClick={(e) => { e.preventDefault(); setOpen(true); }}
-        className={`block overflow-hidden bg-gray-50 rounded ${className}`}
+        onClick={e => { e.preventDefault(); setOpen(true); }}
+        className="block overflow-hidden bg-gray-50 rounded w-[72%] max-w-[220px] h-36 mx-auto"
         style={{ border: 'none', padding: 0 }}
         aria-label={`Ver imagen de ${alt}`}
       >
-        <img src={src} alt={alt} onError={handleImgError} className={`${imgClass} w-full h-full`} />
+        <img src={src} alt={alt} onError={handleImgError} className="object-contain w-full h-full" />
       </button>
 
       {open && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80 p-2 sm:p-4"
           onClick={() => setOpen(false)}
         >
-          <div className="max-w-[95%] max-h-[95%] overflow-auto rounded" onClick={(e) => e.stopPropagation()}>
-            <div className="relative bg-black rounded">
+          <div className="max-w-[95%] max-h-[95%] overflow-auto" onClick={e => e.stopPropagation()}>
+            <div className="relative">
               <button
                 onClick={() => setOpen(false)}
                 className="absolute top-2 right-2 z-10 bg-black/40 text-white p-2 rounded"
               >✕</button>
-              <img src={src} alt={alt} onError={handleImgError} className="max-w-full max-h-[80vh] object-contain block mx-auto" />
+              <img src={src} alt={alt} onError={handleImgError} className="w-full max-h-[90vh] object-contain mx-auto rounded" />
+              <div className="text-center text-sm text-gray-200 mt-2">{alt}</div>
             </div>
-            <div className="text-center text-sm text-gray-200 mt-3">{alt}</div>
           </div>
         </div>
       )}
@@ -80,7 +81,7 @@ function ImageWithModal({ src, alt, className = 'w-[68%] max-w-[200px] h-36 mx-a
 /* ---------- Normalize Product ---------- */
 function normalizeProduct(raw, idFallback) {
   const name = (raw.name ?? raw.Nombre ?? raw.nombre ?? '').toString().trim();
-  const price = parsePrice(raw.price ?? raw.Precio ?? raw.precio ?? raw.Price);
+  const price = parsePrice(raw.price ?? raw.Precio ?? raw.precio ?? 0);
   const description = (raw.description ?? raw.Descripcion ?? raw.descripcion ?? raw.short ?? '').toString();
   const category = (raw.category ?? raw.Categoria ?? raw.categoria ?? 'Sin categoría').toString();
   const promo = parsePrice(raw.promo ?? raw.Promo ?? 0);
@@ -115,7 +116,6 @@ function DulceriaApp() {
   const [cart, setCart] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
 
-  /* ---------- Load Products ---------- */
   useEffect(() => {
     let mounted = true;
 
@@ -147,7 +147,6 @@ function DulceriaApp() {
     return () => mounted = false;
   }, []);
 
-  /* ---------- Filter / Sort ---------- */
   const categories = useMemo(() => ['Todos', ...Array.from(new Set(products.map(p => p.category)))], [products]);
 
   const filtered = useMemo(() => {
@@ -169,7 +168,6 @@ function DulceriaApp() {
   const totalPages = Math.max(1, Math.ceil(sorted.length / perPage));
   const visible = sorted.slice((page - 1) * perPage, page * perPage);
 
-  /* ---------- Cart ---------- */
   function addToCart(p) { setCart(prev => { const f = prev.find(x => x.id === p.id); if (f) return prev.map(x => x.id === p.id ? { ...x, qty: x.qty + 1 } : x); return [...prev, { ...p, qty: 1 }]; }); }
   function updateQty(id, qty) { setCart(prev => prev.map(p => p.id === id ? { ...p, qty: Math.max(1, Number(qty) || 1) } : p)); }
   function removeFromCart(id) { setCart(prev => prev.filter(p => p.id !== id)); }
@@ -195,173 +193,11 @@ function DulceriaApp() {
     window.open(`https://wa.me/?text=${text}`, '_blank');
   }
 
-  /* ---------- Pagination ---------- */
   function goPrev() { setPage(p => Math.max(1, p - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }
   function goNext() { setPage(p => Math.min(totalPages, p + 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }
 
-  /* ---------- UI ---------- */
+  /* ---------- Render ---------- */
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-800">
+    <div className="min-h-screen bg-gray-50 text-gray-800 relative">
       {/* Header */}
-      <header className="sticky top-0 z-50 shadow-sm">
-        <div className="bg-gradient-to-r from-pink-500 via-pink-400 to-rose-200">
-          <div className="max-w-6xl mx-auto px-3 sm:px-4 py-3 flex items-center justify-between">
-            <div className="flex items-center gap-4 min-w-0">
-              <div className="flex-shrink-0">
-                <img src="./src/logo.png" alt="Dulcería La Fiesta" onError={e => { e.target.style.display = 'none'; }} className="h-12 sm:h-14 object-contain" />
-              </div>
-              <div className="truncate text-white">
-                <div className="text-lg sm:text-xl font-bold leading-tight">Dulcería La Fiesta</div>
-                <div className="text-xs sm:text-sm opacity-90">Dulces y sorpresas</div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <select aria-label="Ordenar productos" value={order} onChange={e => { setOrder(e.target.value); setPage(1); }} className="text-sm rounded px-2 py-1 bg-white/90">
-                <option value="default">Orden: recomendado</option>
-                <option value="price-asc">Precio: más bajo</option>
-                <option value="price-desc">Precio: más alto</option>
-                <option value="promo">Promociones</option>
-              </select>
-
-              <button onClick={() => setCartOpen(true)} className="relative p-2 rounded-md bg-white/90 hover:bg-white" aria-label="Abrir carrito">
-                <img src="./src/carrito.png" alt="Carrito" onError={e => { e.target.style.display = 'none'; }} className="h-6 w-6 object-contain" />
-                {cart.length > 0 && <span className="absolute -right-2 -top-2 bg-pink-600 text-white text-xs rounded-full px-1.5">{cart.length}</span>}
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Main */}
-      <main className="max-w-6xl mx-auto px-3 sm:px-4 py-4">
-        {/* Search / Filter */}
-        <section className="bg-white rounded-lg p-3 sm:p-4 shadow-sm mb-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="col-span-1 md:col-span-2">
-              <input
-                aria-label="Buscar productos"
-                value={query}
-                onChange={e => { setQuery(e.target.value); setPage(1); }}
-                className="w-full border rounded px-3 py-2 text-sm shadow-sm"
-                placeholder="Buscar por nombre, categoría o descripción..."
-              />
-            </div>
-            <div className="flex gap-2 items-center justify-end">
-              <select value={category} onChange={e => { setCategory(e.target.value); setPage(1); }} className="border rounded px-3 py-2 text-sm">
-                {categories.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-              <button onClick={() => { setQuery(''); setCategory('Todos'); setOrder('default'); setPage(1); }} className="ml-1 px-3 py-2 border rounded text-sm">Limpiar</button>
-            </div>
-          </div>
-        </section>
-
-        {/* Products */}
-        <section>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold">Productos</h2>
-            <div className="text-sm text-gray-600">Mostrando {Math.min(sorted.length, (page - 1) * perPage + 1)}–{Math.min(sorted.length, page * perPage)} de {sorted.length}</div>
-          </div>
-
-          {visible.length === 0 ? (
-            <div className="bg-white rounded-lg p-8 text-center shadow">
-              <div className="text-gray-400 text-lg mb-3">No se encontraron productos</div>
-              <div className="text-sm text-gray-500">Revisa tu archivo <code>products.xlsx</code> o la carpeta <code>src/</code> con imágenes.</div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {visible.map(p => (
-                <article key={p.id} className="relative bg-white rounded-lg shadow-sm hover:shadow-lg transition transform hover:-translate-y-1 focus-within:shadow-lg">
-                  {p.promo && <BadgePromo />}
-                  <div className="p-4 flex flex-col h-full">
-                    <div className="mb-3">
-                      <ImageWithModal src={p.image} alt={p.name} className="w-[72%] max-w-[220px] h-36 mx-auto" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-sm sm:text-base truncate mb-1">{p.name}</h3>
-                      <p className="text-xs sm:text-sm text-gray-500 mb-3 line-clamp-2">{p.short || p.description}</p>
-                    </div>
-                    <div className="mt-3 flex items-center justify-between">
-                      <div className="flex flex-col">
-                        {p.promo ? (
-                          <>
-                            <div className="text-sm text-gray-400 line-through">{moneyFmt.format(p.price)}</div>
-                            <div className="text-lg font-extrabold text-pink-600">{moneyFmt.format(p.promo)}</div>
-                            {p.promoEnd && <div className="text-xs text-gray-500 mt-1">Promo válida hasta {p.promoEnd}</div>}
-                          </>
-                        ) : (
-                          <div className="text-lg font-bold">{moneyFmt.format(p.price)}</div>
-                        )}
-                      </div>
-                      <button onClick={() => addToCart(p)} className="ml-3 inline-flex items-center px-3 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded shadow-sm text-sm">Agregar</button>
-                    </div>
-                  </div>
-                </article>
-              ))}
-            </div>
-          )}
-
-          {/* Pagination */}
-          <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-3">
-            <div className="text-sm text-gray-600">Página {page} / {totalPages}</div>
-            <div className="flex items-center gap-2">
-              <button onClick={goPrev} disabled={page===1} className="px-3 py-2 border rounded disabled:opacity-50">Anterior</button>
-              <div className="hidden sm:flex items-center gap-1">
-                {Array.from({ length: totalPages }, (_, i) => i + 1)
-                  .slice(Math.max(0, page - 3), Math.min(totalPages, page + 2))
-                  .map(n => (
-                    <button key={n} onClick={() => setPage(n)} className={`px-3 py-2 rounded ${n===page ? 'bg-pink-600 text-white' : 'border bg-white'}`}>{n}</button>
-                  ))}
-              </div>
-              <button onClick={goNext} disabled={page===totalPages} className="px-3 py-2 border rounded disabled:opacity-50">Siguiente</button>
-            </div>
-          </div>
-        </section>
-      </main>
-
-      {/* Carrito lateral */}
-      <div className={`fixed top-0 right-0 h-full w-full md:w-96 bg-white shadow-xl transform ${cartOpen ? 'translate-x-0' : 'translate-x-full'} transition-transform`} style={{ zIndex: 1000 }}>
-        <div className="p-4 flex justify-between items-center border-b">
-          <h2 className="text-lg font-semibold">Carrito ({cart.length})</h2>
-          <button onClick={() => setCartOpen(false)} className="text-gray-500 hover:text-gray-700">✕</button>
-        </div>
-        <div className="p-4 overflow-y-auto h-[calc(100%-160px)]">
-          {cart.length === 0 ? (
-            <div className="text-gray-400 text-center mt-10">Carrito vacío</div>
-          ) : (
-            <ul className="space-y-3">
-              {cart.map(p => (
-                <li key={p.id} className="flex items-center justify-between border rounded p-2">
-                  <div className="flex items-center gap-2">
-                    <img src={p.image} alt={p.name} onError={handleImgError} className="w-12 h-12 object-contain" />
-                    <div>
-                      <div className="font-semibold text-sm">{p.name}</div>
-                      <div className="text-xs text-gray-500">{moneyFmt.format(p.promo ?? p.price)}</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <input type="number" min="1" value={p.qty} onChange={e => updateQty(p.id, e.target.value)} className="w-12 text-center border rounded text-sm" />
-                    <button onClick={() => removeFromCart(p.id)} className="text-red-500 hover:text-red-700 text-sm">✕</button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-        {cart.length > 0 && (
-          <div className="p-4 border-t">
-            <div className="mb-3 text-sm">
-              <div>Subtotal: {moneyFmt.format(subtotal)}</div>
-              <div>Impuestos: {moneyFmt.format(taxes)}</div>
-              <div className="font-semibold">Total: {moneyFmt.format(total)}</div>
-            </div>
-            <button onClick={openWhatsApp} className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-2 rounded">Enviar pedido por WhatsApp</button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/* ---------- Expose ---------- */
-window.DulceriaApp = DulceriaApp;
+      <header className="sticky top-0 z-50 shadow-sm bg-gradient-to-r from-pink-500 via-pink-400 to-rose-200
