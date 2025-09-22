@@ -1,42 +1,133 @@
 /* dulceria.jsx
-   Versión sin botón de subida: carga automáticamente ./products.xlsx (si existe) o ./products.json.
-   Usa React global (React, ReactDOM) y Tailwind desde CDN.
+   Carga automática de ./products.xlsx o ./products.json y muestra catálogo.
+   Imágenes buscadas en ./src/ por defecto. No hay botón de upload en la UI.
 */
 
 const { useState, useMemo, useEffect } = React;
 
-/** Helpers **/
+/* ------------------ Helpers ------------------ */
+
+// slugify seguro (quita acentos, ñ->n, minúsculas, espacios->-)
 function slugify(text) {
   return String(text || '')
     .normalize('NFKD')
     .replace(/[\u0300-\u036f]/g, '') // quitar acentos
+    .replace(/ñ/g, 'n').replace(/Ñ/g, 'n')
     .toLowerCase()
     .trim()
-    .replace(/[^a-z0-9]+/g, '-') // reemplaza todo lo no alfanum por guion
+    .replace(/[^a-z0-9]+/g, '-') // no alfanum -> guion
     .replace(/^-+|-+$/g, '');
 }
 
 function parsePrice(v) {
   if (v == null) return 0;
-  const n = parseFloat(String(v).toString().replace(/[^\d.,-]/g, '').replace(',', '.'));
+  const s = String(v).trim().replace(/\s+/g, '');
+  const n = parseFloat(s.replace(/[^\d.,-]/g, '').replace(',', '.'));
   return Number.isFinite(n) ? n : 0;
 }
 
-/** Normaliza/garantiza campos de producto y resuelve ruta de imagen por defecto */
-function normalizeProduct(raw, idFallback) {
-  const name = raw.name ?? raw.Nombre ?? raw.nombre ?? '';
-  const price = parsePrice(raw.price ?? raw.Precio ?? raw.precio ?? raw.Price ?? raw.PRICE);
-  const description = raw.description ?? raw.Descripcion ?? raw.descripcion ?? raw.Descripción ?? raw.short ?? '';
-  const category = raw.category ?? raw.Categoria ?? raw.categoria ?? 'Sin categoría';
-  const rawImage = (raw.image ?? raw.Imagen ?? raw.imagen ?? raw.Image ?? '').toString().trim();
+// reemplazo de onError por placeholder
+function handleImgError(e) {
+  e.target.onerror = null;
+  e.target.src = 'https://via.placeholder.com/600x400?text=Sin+imagen';
+}
 
+/* ------------------ Image + Modal ------------------ */
+/* Muestra imagen adaptada (object-contain) y modal al click */
+function ImageWithModal({ src, alt, className = 'w-full h-40', imgClass = 'object-contain' }) {
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    function onKey(e) { if (e.key === 'Escape') setOpen(false); }
+    if (open) window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
+
+  return (
+    <>
+      <button
+        onClick={(e) => { e.preventDefault(); setOpen(true); }}
+        aria-label={`Ver imagen de ${alt}`}
+        className={`block overflow-hidden bg-gray-100 rounded ${className}`}
+        style={{ border: 'none', padding: 0 }}
+      >
+        <img
+          src={src}
+          alt={alt}
+          loading="lazy"
+          onError={handleImgError}
+          className={`${imgClass} w-full h-full`}
+        />
+      </button>
+
+      {open && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 p-4"
+          onClick={() => setOpen(false)}
+        >
+          <div className="max-w-[95%] max-h-[95%] overflow-auto rounded" onClick={(e) => e.stopPropagation()}>
+            <div className="relative bg-black rounded">
+              <button
+                onClick={() => setOpen(false)}
+                aria-label="Cerrar"
+                className="absolute top-2 right-2 z-10 rounded bg-black/40 text-white p-1"
+                style={{ backdropFilter: 'blur(2px)' }}
+              >
+                ✕
+              </button>
+              <img
+                src={src}
+                alt={alt}
+                onError={handleImgError}
+                className="max-w-full max-h-[80vh] object-contain block mx-auto"
+                style={{ display: 'block' }}
+              />
+            </div>
+            <div className="text-center text-sm text-gray-200 mt-3">{alt}</div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+/* ------------------ Normalización de producto ------------------ */
+/* raw puede venir de Excel (XLSX -> sheet_to_json) o products.json */
+function normalizeProduct(raw, idFallback) {
+  const name = (raw.name ?? raw.Nombre ?? raw.nombre ?? '').toString().trim();
+  const price = parsePrice(raw.price ?? raw.Precio ?? raw.precio ?? raw.Price);
+  const description = (raw.description ?? raw.Descripcion ?? raw.descripcion ?? raw.short ?? '').toString();
+  const category = (raw.category ?? raw.Categoria ?? raw.categoria ?? 'Sin categoría').toString();
+  let rawImage = (raw.image ?? raw.Imagen ?? raw.imagen ?? raw.Image ?? '').toString().trim();
+
+  // reglas para interpretar la columna image:
+  // - si es URL absoluta -> usar tal cual
+  // - si empieza con './' o '/' -> usar tal cual
+  // - si empieza con 'src/' -> convertir a './src/...' (permitir usuarios que escriban 'src/...')
+  // - si es vacío -> './src/<slug-del-nombre>.jpg'
+  // - si es simple 'carpeta/archivo.jpg' o 'archivo.jpg' -> './src/<lo-que-escribieron>'
+  // - si no tiene extensión se añade .jpg
   let image = rawImage;
+
   if (!image) {
     image = `./src/${slugify(name)}.jpg`;
-  } else if (!/^https?:\/\//i.test(image) && !image.startsWith('./') && !image.startsWith('/')) {
-    // si es un nombre simple como "miimagen.jpg" o "miimagen" -> lo convertimos a ./src/...
+  } else if (/^https?:\/\//i.test(image)) {
+    // URL completa: usar tal cual
+  } else if (image.startsWith('./') || image.startsWith('/')) {
+    // ruta relativa ya válida: usar tal cual
+  } else if (image.startsWith('src/')) {
+    // convertir a ./src/...
+    image = `./${image}`;
+  } else {
+    // nombre simple o subruta -> colocar dentro de ./src/
     image = `./src/${image}`;
-    if (!/\.[a-zA-Z0-9]{2,5}$/.test(image)) image += '.jpg';
+  }
+
+  // si no tiene extensión al final, agregar .jpg
+  if (!/\.[a-zA-Z0-9]{2,5}$/.test(image) && !/^https?:\/\//i.test(image)) {
+    image = `${image}.jpg`;
   }
 
   return {
@@ -50,12 +141,11 @@ function normalizeProduct(raw, idFallback) {
   };
 }
 
-/** Componente principal **/
+/* ------------------ Componente principal ------------------ */
 function DulceriaApp() {
-  // START: no sample products (quedamos vacíos hasta que se cargue el Excel/JSON)
-  const [products, setProducts] = useState([]);
-  const [query, setQuery] = useState("");
-  const [category, setCategory] = useState("Todos");
+  const [products, setProducts] = useState([]); // vacíos hasta cargar products.xlsx/json
+  const [query, setQuery] = useState('');
+  const [category, setCategory] = useState('Todos');
   const [minPrice, setMinPrice] = useState(0);
   const [maxPrice, setMaxPrice] = useState(10000);
   const [visibleCount, setVisibleCount] = useState(12);
@@ -63,19 +153,24 @@ function DulceriaApp() {
   const [cart, setCart] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
 
-  // Al iniciar intentamos cargar ./products.xlsx primero, si no existe intentamos ./products.json
+  // carga automática: primero products.xlsx (primera hoja), si no existe intenta products.json
   useEffect(() => {
     let mounted = true;
 
-    async function loadFromXlsx() {
+    // intenta cargar xlsx
+    async function tryLoadXlsx() {
       try {
-        const res = await fetch('./products.xlsx');
+        const res = await fetch('./products.xlsx', { cache: 'no-store' });
         if (!res.ok) throw new Error('no xlsx');
-        const data = await res.arrayBuffer();
-        const workbook = XLSX.read(data, { type: 'array' });
-        const sheetName = workbook.SheetNames[0];
+        const ab = await res.arrayBuffer();
+        const workbook = XLSX.read(ab, { type: 'array' });
+
+        // buscar hoja llamada Products/Productos si existe, sino usar la primera
+        const preferNames = ['Products', 'products', 'Productos', 'productos', 'Sheet1'];
+        let sheetName = workbook.SheetNames.find(n => preferNames.includes(n)) || workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
         const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
         const mapped = rows.map((r, i) => normalizeProduct(r, i + 1));
         if (mounted) setProducts(mapped);
         return true;
@@ -84,9 +179,9 @@ function DulceriaApp() {
       }
     }
 
-    async function loadFromJson() {
+    async function tryLoadJson() {
       try {
-        const res = await fetch('./products.json');
+        const res = await fetch('./products.json', { cache: 'no-store' });
         if (!res.ok) throw new Error('no json');
         const data = await res.json();
         if (!Array.isArray(data)) return false;
@@ -99,47 +194,43 @@ function DulceriaApp() {
     }
 
     (async () => {
-      const xlsxLoaded = await loadFromXlsx();
-      if (!xlsxLoaded) {
-        await loadFromJson();
-      }
+      const okXlsx = await tryLoadXlsx();
+      if (!okXlsx) await tryLoadJson();
     })();
 
     return () => { mounted = false; };
   }, []);
 
-  // Categorías calculadas a partir de productos (si no hay productos -> solo 'Todos')
+  // categorías derivadas
   const categories = useMemo(() => {
     const set = new Set(['Todos', ...products.map(p => p.category ?? 'Sin categoría')]);
     return Array.from(set);
   }, [products]);
 
-  // Filtrado
+  // filtrado y busqueda
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return products
-      .filter((p) => (category === "Todos" ? true : (p.category ?? '') === category))
-      .filter((p) => (p.price ?? 0) >= Number(minPrice) && (p.price ?? 0) <= Number(maxPrice))
-      .filter((p) => (p.name + ' ' + (p.category ?? '')).toLowerCase().includes(q));
+      .filter(p => (category === 'Todos' ? true : (p.category ?? '') === category))
+      .filter(p => (p.price ?? 0) >= Number(minPrice) && (p.price ?? 0) <= Number(maxPrice))
+      .filter(p => ((p.name ?? '') + ' ' + (p.category ?? '')).toLowerCase().includes(q));
   }, [products, category, query, minPrice, maxPrice]);
 
   const visibleProducts = filtered.slice(0, visibleCount);
 
-  // Carrito
+  // carrito
   function addToCart(product) {
-    setCart((prev) => {
-      const found = prev.find((x) => x.id === product.id);
-      if (found) return prev.map((x) => (x.id === product.id ? { ...x, qty: x.qty + 1 } : x));
+    setCart(prev => {
+      const found = prev.find(x => x.id === product.id);
+      if (found) return prev.map(x => x.id === product.id ? { ...x, qty: x.qty + 1 } : x);
       return [...prev, { ...product, qty: 1 }];
     });
   }
-
   function updateQty(id, qty) {
-    setCart((prev) => prev.map((p) => (p.id === id ? { ...p, qty: Math.max(1, Number(qty) || 1) } : p)));
+    setCart(prev => prev.map(p => p.id === id ? { ...p, qty: Math.max(1, Number(qty) || 1) } : p));
   }
-
   function removeFromCart(id) {
-    setCart((prev) => prev.filter((p) => p.id !== id));
+    setCart(prev => prev.filter(p => p.id !== id));
   }
 
   const subtotal = cart.reduce((s, p) => s + (p.price || 0) * p.qty, 0);
@@ -147,30 +238,19 @@ function DulceriaApp() {
   const total = +(subtotal + taxes).toFixed(2);
 
   function generateWhatsAppMessage() {
-    if (cart.length === 0) return "";
-    let lines = ["Pedido desde Dulcería:\n"];
-    cart.forEach((p) => {
-      lines.push(`${p.qty} x ${p.name} - $${(p.price * p.qty).toFixed(2)}`);
-    });
+    if (cart.length === 0) return '';
+    let lines = ['Pedido desde Dulcería:\n'];
+    cart.forEach(p => lines.push(`${p.qty} x ${p.name} - $${(p.price * p.qty).toFixed(2)}`));
     lines.push(`\nSubtotal: $${subtotal.toFixed(2)}`);
     lines.push(`Impuestos: $${taxes.toFixed(2)}`);
     lines.push(`Total: $${total.toFixed(2)}`);
-    lines.push("\nDatos de entrega: (escribe aquí tu nombre, dirección y teléfono)");
-
-    return encodeURIComponent(lines.join("\n"));
+    lines.push('\nDatos de entrega: (escribe aquí tu nombre, dirección y teléfono)');
+    return encodeURIComponent(lines.join('\n'));
   }
-
   function openWhatsApp() {
     const text = generateWhatsAppMessage();
-    if (!text) return alert("El carrito está vacío.");
-    const url = `https://wa.me/?text=${text}`;
-    window.open(url, "_blank");
-  }
-
-  // Handler de error de imagen -> pone placeholder
-  function handleImgError(e) {
-    e.target.onerror = null;
-    e.target.src = 'https://via.placeholder.com/300x200?text=Sin+imagen';
+    if (!text) return alert('El carrito está vacío.');
+    window.open(`https://wa.me/?text=${text}`, '_blank');
   }
 
   return (
@@ -181,15 +261,15 @@ function DulceriaApp() {
             <div className="w-10 h-10 bg-pink-400 rounded-full flex items-center justify-center text-white font-bold">D</div>
             <div>
               <h1 className="text-xl font-bold">Dulcería La Fiesta</h1>
-              <p className="text-sm text-gray-500">Dulces, sorpresas y decoración para tus eventos</p>
+              <p className="text-sm text-gray-500">Catálogo — imágenes en <code>./src/</code></p>
             </div>
           </div>
 
           <nav className="hidden md:flex gap-4 items-center">
-            {categories.map((c) => (
+            {categories.map(c => (
               <button
                 key={c}
-                className={`px-3 py-2 rounded ${category === c ? "bg-pink-100 text-pink-700" : "hover:bg-gray-100"}`}
+                className={`px-3 py-2 rounded ${category === c ? 'bg-pink-100 text-pink-700' : 'hover:bg-gray-100'}`}
                 onClick={() => setCategory(c)}
               >
                 {c}
@@ -202,11 +282,8 @@ function DulceriaApp() {
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4" />
               </svg>
-              {cart.length > 0 && (
-                <span className="absolute -right-2 -top-2 bg-pink-600 text-white text-xs rounded-full px-1.5">{cart.length}</span>
-              )}
+              {cart.length > 0 && <span className="absolute -right-2 -top-2 bg-pink-600 text-white text-xs rounded-full px-1.5">{cart.length}</span>}
             </button>
-            {/* Note: removed upload / plantilla buttons as requested */}
           </div>
         </div>
       </header>
@@ -215,26 +292,18 @@ function DulceriaApp() {
         <section className="bg-white rounded-lg p-4 shadow-sm mb-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="col-span-1 md:col-span-2 flex items-center gap-2">
-              <input
-                aria-label="Buscar productos"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                className="w-full border rounded px-3 py-2"
-                placeholder="Buscar por nombre o categoría..."
-              />
+              <input aria-label="Buscar productos" value={query} onChange={e => setQuery(e.target.value)} className="w-full border rounded px-3 py-2" placeholder="Buscar por nombre o categoría..." />
             </div>
 
             <div className="flex gap-2 items-center">
-              <select value={category} onChange={(e) => setCategory(e.target.value)} className="border rounded px-3 py-2">
-                {categories.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
+              <select value={category} onChange={e => setCategory(e.target.value)} className="border rounded px-3 py-2">
+                {categories.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
 
-              <input type="number" min={0} value={minPrice} onChange={(e) => setMinPrice(e.target.value)} className="w-20 border rounded px-2 py-2" placeholder="Min" />
-              <input type="number" min={0} value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)} className="w-20 border rounded px-2 py-2" placeholder="Max" />
+              <input type="number" min={0} value={minPrice} onChange={e => setMinPrice(e.target.value)} className="w-20 border rounded px-2 py-2" placeholder="Min" />
+              <input type="number" min={0} value={maxPrice} onChange={e => setMaxPrice(e.target.value)} className="w-20 border rounded px-2 py-2" placeholder="Max" />
 
-              <button onClick={() => { setQuery(""); setCategory("Todos"); setMinPrice(0); setMaxPrice(10000); setVisibleCount(12); }} className="ml-2 px-3 py-2 border rounded">Limpiar</button>
+              <button onClick={() => { setQuery(''); setCategory('Todos'); setMinPrice(0); setMaxPrice(10000); setVisibleCount(12); }} className="ml-2 px-3 py-2 border rounded">Limpiar</button>
             </div>
           </div>
         </section>
@@ -246,14 +315,9 @@ function DulceriaApp() {
             <div className="bg-white rounded-lg p-6 text-center shadow">No se encontraron productos.</div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {visibleProducts.map((p) => (
+              {visibleProducts.map(p => (
                 <article key={p.id} className="bg-white rounded shadow-sm overflow-hidden flex flex-col">
-                  <img
-                    src={p.image || `./src/${slugify(p.name)}.jpg`}
-                    alt={p.name}
-                    onError={handleImgError}
-                    className="w-full h-40 object-cover"
-                  />
+                  <ImageWithModal src={p.image || `./src/${slugify(p.name)}.jpg`} alt={p.name} className="w-full h-40" imgClass="object-contain" />
                   <div className="p-3 flex-1 flex flex-col">
                     <h3 className="font-semibold">{p.name}</h3>
                     <p className="text-sm text-gray-500 flex-1">{p.short || p.description}</p>
@@ -269,17 +333,18 @@ function DulceriaApp() {
 
           {visibleCount < filtered.length && (
             <div className="mt-6 text-center">
-              <button onClick={() => setVisibleCount((v) => v + 12)} className="px-4 py-2 border rounded">Cargar más</button>
+              <button onClick={() => setVisibleCount(v => v + 12)} className="px-4 py-2 border rounded">Cargar más</button>
             </div>
           )}
         </section>
       </main>
 
-      <div className={`fixed top-0 right-0 h-full w-full md:w-96 bg-white shadow-xl transform ${cartOpen ? "translate-x-0" : "translate-x-full"} transition-transform`}>
+      {/* Carrito lateral */}
+      <div className={`fixed top-0 right-0 h-full w-full md:w-96 bg-white shadow-xl transform ${cartOpen ? 'translate-x-0' : 'translate-x-full'} transition-transform`}>
         <div className="p-4 border-b flex items-center justify-between">
           <h3 className="text-lg font-bold">Tu carrito</h3>
           <div className="flex items-center gap-2">
-            <button onClick={() => { setCart([]); }} className="text-sm text-red-500">Vaciar</button>
+            <button onClick={() => setCart([])} className="text-sm text-red-500">Vaciar</button>
             <button onClick={() => setCartOpen(false)} className="px-2 py-1 border rounded">Cerrar</button>
           </div>
         </div>
@@ -288,15 +353,15 @@ function DulceriaApp() {
           {cart.length === 0 ? (
             <div className="text-center text-gray-500">No hay productos en el carrito.</div>
           ) : (
-            cart.map((p) => (
+            cart.map(p => (
               <div key={p.id} className="flex items-center gap-3">
-                <img src={p.image || `./src/${slugify(p.name)}.jpg`} alt={p.name} onError={handleImgError} className="w-16 h-12 object-cover rounded" />
+                <ImageWithModal src={p.image || `./src/${slugify(p.name)}.jpg`} alt={p.name} className="w-16 h-12" imgClass="object-contain" />
                 <div className="flex-1">
                   <div className="font-semibold">{p.name}</div>
                   <div className="text-sm text-gray-500">${(p.price || 0).toFixed(2)}</div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <input type="number" value={p.qty} min={1} onChange={(e) => updateQty(p.id, e.target.value)} className="w-16 border rounded px-2 py-1" />
+                  <input type="number" value={p.qty} min={1} onChange={e => updateQty(p.id, e.target.value)} className="w-16 border rounded px-2 py-1" />
                   <button onClick={() => removeFromCart(p.id)} className="text-sm text-red-500">Eliminar</button>
                 </div>
               </div>
@@ -319,5 +384,5 @@ function DulceriaApp() {
   );
 }
 
-// Exponer en el scope global para que render.js pueda usarlo
+// Exponer en el scope global para render.js
 window.DulceriaApp = DulceriaApp;
