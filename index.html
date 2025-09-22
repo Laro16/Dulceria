@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Dulcería La Fiesta</title>
+
+    <!-- Tailwind Play CDN (rápido para prototipos / sin build) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- React + ReactDOM UMD (desarrollo) -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+
+    <!-- Babel Standalone para transpilar JSX en el navegador (sin build) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <meta name="description" content="Dulcería La Fiesta - catálogo y carrito" />
+  </head>
+  <body class="antialiased bg-gray-50">
+    <div id="root"></div>
+
+    <!-- Tu componente (archivo que subiste: dulceria.jsx) -->
+    <script type="text/babel" src="./dulceria.jsx"></script>
+
+    <!-- Pequeño script para montar el componente -->
+    <script type="text/babel" src="./render.js"></script>
+  </body>
+</html>
