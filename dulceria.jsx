@@ -1,14 +1,15 @@
 /* dulceria.jsx
-   Versión actualizada:
-   - miniaturas más estrechas (no ocupan todo el ancho)
-   - icono del carrito desde ./src/carrito.png
-   - todo optimizado para móvil / iPhone
-   - mantiene carga automática de products.xlsx / products.json
+   Actualizado:
+   - header fijo (sticky)
+   - logo grande desde ./src/logo.png (fuera de círculo)
+   - carrito usa ./src/carrito.png (muestra svg fallback solo si imagen falla)
+   - quité el texto "Catálogo — imágenes en ./src/"
+   - contenedores de imagen más estrechos y optimizados para mobile
 */
 
 const { useState, useMemo, useEffect } = React;
 
-/* ------------------ Helpers ------------------ */
+/* Helpers */
 function slugify(text) {
   return String(text || '')
     .normalize('NFKD')
@@ -30,13 +31,7 @@ function handleImgError(e) {
 }
 const moneyFmt = new Intl.NumberFormat('es-GT', { style: 'currency', currency: 'GTQ', maximumFractionDigits: 2 });
 
-/* ------------------ Image + Modal (adaptativa) ------------------ */
-/*
-  Cambios clave:
-  - className por defecto es más estrecho: max width + centered
-  - imgClass default 'object-contain' para que la imagen se vea completa sin recortes
-  - imagen abre modal al tocar (móvil) o click (desktop)
-*/
+/* Image + modal */
 function ImageWithModal({ src, alt, className = 'w-[72%] max-w-[220px] h-36 mx-auto', imgClass = 'object-contain' }) {
   const [open, setOpen] = useState(false);
 
@@ -54,38 +49,15 @@ function ImageWithModal({ src, alt, className = 'w-[72%] max-w-[220px] h-36 mx-a
         className={`block overflow-hidden bg-gray-100 rounded ${className}`}
         style={{ border: 'none', padding: 0 }}
       >
-        <img
-          src={src}
-          alt={alt}
-          loading="lazy"
-          onError={handleImgError}
-          className={`${imgClass} w-full h-full`}
-        />
+        <img src={src} alt={alt} loading="lazy" onError={handleImgError} className={`${imgClass} w-full h-full`} />
       </button>
 
       {open && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80 p-4"
-          onClick={() => setOpen(false)}
-        >
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80 p-4" onClick={() => setOpen(false)}>
           <div className="max-w-[95%] max-h-[95%] overflow-auto rounded" onClick={(e) => e.stopPropagation()}>
             <div className="relative bg-black rounded">
-              <button
-                onClick={() => setOpen(false)}
-                aria-label="Cerrar"
-                className="absolute top-2 right-2 z-10 rounded bg-black/40 text-white p-2"
-                style={{ backdropFilter: 'blur(2px)' }}
-              >
-                ✕
-              </button>
-              <img
-                src={src}
-                alt={alt}
-                onError={handleImgError}
-                className="max-w-full max-h-[80vh] object-contain block mx-auto"
-              />
+              <button onClick={() => setOpen(false)} aria-label="Cerrar" className="absolute top-2 right-2 z-10 rounded bg-black/40 text-white p-2" style={{ backdropFilter: 'blur(2px)' }}>✕</button>
+              <img src={src} alt={alt} onError={handleImgError} className="max-w-full max-h-[80vh] object-contain block mx-auto" />
             </div>
             <div className="text-center text-sm text-gray-200 mt-3">{alt}</div>
           </div>
@@ -95,7 +67,7 @@ function ImageWithModal({ src, alt, className = 'w-[72%] max-w-[220px] h-36 mx-a
   );
 }
 
-/* ------------------ Normalización de productos ------------------ */
+/* Normaliza producto */
 function normalizeProduct(raw, idFallback) {
   const name = (raw.name ?? raw.Nombre ?? raw.nombre ?? '').toString().trim();
   const price = parsePrice(raw.price ?? raw.Precio ?? raw.precio ?? raw.Price);
@@ -107,9 +79,9 @@ function normalizeProduct(raw, idFallback) {
   if (!image) {
     image = `./src/${slugify(name)}.jpg`;
   } else if (/^https?:\/\//i.test(image)) {
-    // URL completa
+    // url completa
   } else if (image.startsWith('./') || image.startsWith('/')) {
-    // ruta relativa tal cual
+    // usar tal cual
   } else if (image.startsWith('src/')) {
     image = `./${image}`;
   } else {
@@ -131,7 +103,7 @@ function normalizeProduct(raw, idFallback) {
   };
 }
 
-/* ------------------ App principal ------------------ */
+/* App principal */
 function DulceriaApp() {
   const [products, setProducts] = useState([]);
   const [query, setQuery] = useState('');
@@ -143,10 +115,12 @@ function DulceriaApp() {
   const [cart, setCart] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
 
-  // Carga automática: products.xlsx -> products.json
+  // trackear si logo y carrito existieron (para fallback condicional)
+  const [logoVisible, setLogoVisible] = useState(true);
+  const [cartImgVisible, setCartImgVisible] = useState(true);
+
   useEffect(() => {
     let mounted = true;
-
     async function tryLoadXlsx() {
       try {
         const res = await fetch('./products.xlsx', { cache: 'no-store' });
@@ -166,7 +140,6 @@ function DulceriaApp() {
         return false;
       }
     }
-
     async function tryLoadJson() {
       try {
         const res = await fetch('./products.json', { cache: 'no-store' });
@@ -180,7 +153,6 @@ function DulceriaApp() {
         return false;
       }
     }
-
     (async () => {
       const okXlsx = await tryLoadXlsx();
       if (!okXlsx) await tryLoadJson();
@@ -189,13 +161,11 @@ function DulceriaApp() {
     return () => { mounted = false; };
   }, []);
 
-  // Categorías
   const categories = useMemo(() => {
     const set = new Set(['Todos', ...products.map(p => p.category ?? 'Sin categoría')]);
     return Array.from(set);
   }, [products]);
 
-  // Filtrado y búsqueda
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return products
@@ -206,7 +176,6 @@ function DulceriaApp() {
 
   const visibleProducts = filtered.slice(0, visibleCount);
 
-  // Carrito
   function addToCart(product) {
     setCart(prev => {
       const found = prev.find(x => x.id === product.id);
@@ -239,49 +208,68 @@ function DulceriaApp() {
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-800">
-      <header className="bg-white shadow">
+      {/* Header fijo */}
+      <header className="bg-white shadow sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-3 sm:px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {/* logo desde ./src/logo.png (fallback letra D) */}
-            <div className="w-10 h-10 rounded-full overflow-hidden bg-pink-400 flex items-center justify-center">
+          {/* left: logo + title */}
+          <div className="flex items-center gap-3 min-w-0">
+            {/* logo grande (no en círculo) */}
+            <div className="flex-shrink-0">
               <img
                 src="./src/logo.png"
-                alt="Logo"
-                onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; }}
-                className="w-full h-full object-contain"
+                alt="Dulcería La Fiesta"
+                onLoad={() => setLogoVisible(true)}
+                onError={(e) => { setLogoVisible(false); e.target.style.display = 'none'; }}
+                className="h-10 sm:h-12 object-contain"
+                style={{ display: logoVisible ? 'block' : 'none' }}
               />
-              <span className="text-white font-bold select-none">D</span>
             </div>
 
-            <div>
-              <h1 className="text-base sm:text-lg font-bold">Dulcería La Fiesta</h1>
-              <p className="text-xs sm:text-sm text-gray-500">Catálogo — imágenes en <code className="text-xs">./src/</code></p>
+            {/* fallback: si logo no existe, mostrar texto grande */}
+            {!logoVisible && (
+              <div className="text-xl font-bold select-none">Dulcería La Fiesta</div>
+            )}
+
+            {/* título pequeño (no la línea con ./src) */}
+            <div className="truncate">
+              <div className="text-base sm:text-lg font-semibold truncate">La Fiesta</div>
+              <div className="text-xs text-gray-500 truncate">Dulces y sorpresas</div>
             </div>
           </div>
 
-          <nav className="hidden md:flex gap-3 items-center">
-            {categories.map(c => (
-              <button key={c} className={`px-3 py-2 rounded ${category === c ? 'bg-pink-100 text-pink-700' : 'hover:bg-gray-100'}`} onClick={() => setCategory(c)}>
-                {c}
-              </button>
-            ))}
-          </nav>
-
+          {/* right: nav (hidden on mobile) + cart */}
           <div className="flex items-center gap-3">
-            {/* icono carrito ahora busca ./src/carrito.png */}
-            <button onClick={() => setCartOpen(true)} className="relative p-2 rounded-md bg-white hover:bg-gray-50">
-              <img src="./src/carrito.png" alt="Carrito" onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; }} className="w-6 h-6 object-contain" />
-              {/* fallback si no existe carrito.png: svg */}
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4" />
-              </svg>
+            <nav className="hidden md:flex gap-3 items-center mr-2">
+              {categories.map(c => (
+                <button key={c} className={`px-3 py-2 rounded ${category === c ? 'bg-pink-100 text-pink-700' : 'hover:bg-gray-100'}`} onClick={() => setCategory(c)}>
+                  {c}
+                </button>
+              ))}
+            </nav>
+
+            {/* carrito: intenta usar ./src/carrito.png; si falla, muestra SVG fallback */}
+            <button onClick={() => setCartOpen(true)} className="relative p-2 rounded-md bg-white hover:bg-gray-50" aria-label="Abrir carrito">
+              <img
+                src="./src/carrito.png"
+                alt="Carrito"
+                onLoad={() => setCartImgVisible(true)}
+                onError={(e) => { setCartImgVisible(false); e.target.style.display = 'none'; }}
+                className="h-6 w-6 object-contain"
+                style={{ display: cartImgVisible ? 'block' : 'none' }}
+              />
+              {!cartImgVisible && (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4" />
+                </svg>
+              )}
               {cart.length > 0 && <span className="absolute -right-2 -top-2 bg-pink-600 text-white text-xs rounded-full px-1.5">{cart.length}</span>}
             </button>
           </div>
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-3 sm:px-4 py-4">
+      {/* main: añadir padding top para que no quede oculto bajo el header fijo */}
+      <main className="max-w-6xl mx-auto px-3 sm:px-4 py-4" style={{ paddingTop: 8 }}>
         <section className="bg-white rounded-lg p-3 sm:p-4 shadow-sm mb-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="col-span-1 md:col-span-2 flex items-center gap-2">
@@ -310,10 +298,9 @@ function DulceriaApp() {
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {visibleProducts.map(p => (
                 <article key={p.id} className="bg-white rounded shadow-sm overflow-hidden flex flex-col">
-                  {/* imagen más estrecha: w-[72%] max-w 220px centrada */}
                   <ImageWithModal src={p.image || `./src/${slugify(p.name)}.jpg`} alt={p.name} className="w-[72%] max-w-[220px] h-36 mx-auto mt-3" imgClass="object-contain" />
                   <div className="p-3 flex-1 flex flex-col">
-                    <h3 className="font-semibold text-sm sm:text-base">{p.name}</h3>
+                    <h3 className="font-semibold text-sm sm:text-base truncate">{p.name}</h3>
                     <p className="text-xs sm:text-sm text-gray-500 flex-1">{p.short || p.description}</p>
                     <div className="mt-3 flex items-center justify-between">
                       <div className="text-base sm:text-lg font-bold">{moneyFmt.format(p.price || 0)}</div>
@@ -349,10 +336,9 @@ function DulceriaApp() {
           ) : (
             cart.map(p => (
               <div key={p.id} className="flex items-center gap-3">
-                {/* carrito: imagen más grande y object-contain para verse completa */}
                 <ImageWithModal src={p.image || `./src/${slugify(p.name)}.jpg`} alt={p.name} className="w-20 h-16" imgClass="object-contain" />
                 <div className="flex-1">
-                  <div className="font-semibold text-sm">{p.name}</div>
+                  <div className="font-semibold text-sm truncate">{p.name}</div>
                   <div className="text-xs text-gray-500">{moneyFmt.format(p.price || 0)}</div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -379,5 +365,5 @@ function DulceriaApp() {
   );
 }
 
-// Exponer en el scope global para render.js
+// export
 window.DulceriaApp = DulceriaApp;
