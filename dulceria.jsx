@@ -1,12 +1,11 @@
 /* dulceria.jsx
-   Actualizado: header con fondo, 20 productos por página, sin filtros de precio,
-   ordenamiento (precio asc/desc/promoción), promo desde Excel (promo, fecha final de promo).
-   Mantiene: carga automática products.xlsx | products.json, ImageWithModal, carrito, móvil.
+   Versión "pro" — estética mejorada, badge de promo, tarjetas con hover, 20 por página.
+   Mantiene: carga automática de products.xlsx / products.json, modal de imagen, carrito.
 */
 
 const { useState, useMemo, useEffect } = React;
 
-/* ------------------ Helpers ------------------ */
+/* ---------- Helpers ---------- */
 function slugify(text) {
   return String(text || '')
     .normalize('NFKD')
@@ -24,13 +23,27 @@ function parsePrice(v) {
 }
 function handleImgError(e) {
   e.target.onerror = null;
-  e.target.src = 'https://via.placeholder.com/600x400?text=Sin+imagen';
+  e.target.src = 'https://via.placeholder.com/800x600?text=Sin+imagen';
 }
 const moneyFmt = new Intl.NumberFormat('es-GT', { style: 'currency', currency: 'GTQ', maximumFractionDigits: 2 });
 
-/* ------------------ Image + Modal ------------------ */
-function ImageWithModal({ src, alt, className = 'w-[72%] max-w-[220px] h-36 mx-auto', imgClass = 'object-contain' }) {
+/* ---------- Presentational components ---------- */
+
+// Ribbon / badge para promociones
+function BadgePromo({ text = 'PROMO' }) {
+  return (
+    <div className="absolute left-0 top-0 -translate-x-2 -translate-y-2">
+      <div className="bg-pink-600 text-white text-xs font-semibold px-3 py-1 rounded-r-md shadow-lg transform rotate-0">
+        {text}
+      </div>
+    </div>
+  );
+}
+
+/* Image with Modal (responsive, touch-friendly) */
+function ImageWithModal({ src, alt, className = 'w-[68%] max-w-[200px] h-36 mx-auto', imgClass = 'object-contain' }) {
   const [open, setOpen] = useState(false);
+
   useEffect(() => {
     function onKey(e) { if (e.key === 'Escape') setOpen(false); }
     if (open) window.addEventListener('keydown', onKey);
@@ -42,17 +55,29 @@ function ImageWithModal({ src, alt, className = 'w-[72%] max-w-[220px] h-36 mx-a
       <button
         onClick={(e) => { e.preventDefault(); setOpen(true); }}
         aria-label={`Ver imagen de ${alt}`}
-        className={`block overflow-hidden bg-gray-100 rounded ${className}`}
+        className={`block overflow-hidden bg-gray-50 rounded ${className} border border-gray-100`}
         style={{ border: 'none', padding: 0 }}
       >
         <img src={src} alt={alt} loading="lazy" onError={handleImgError} className={`${imgClass} w-full h-full`} />
       </button>
 
       {open && (
-        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80 p-4" onClick={() => setOpen(false)}>
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80 p-4"
+          onClick={() => setOpen(false)}
+        >
           <div className="max-w-[95%] max-h-[95%] overflow-auto rounded" onClick={(e) => e.stopPropagation()}>
             <div className="relative bg-black rounded">
-              <button onClick={() => setOpen(false)} aria-label="Cerrar" className="absolute top-2 right-2 z-10 rounded bg-black/40 text-white p-2">✕</button>
+              <button
+                onClick={() => setOpen(false)}
+                aria-label="Cerrar"
+                className="absolute top-2 right-2 z-10 rounded bg-black/40 text-white p-2"
+                style={{ backdropFilter: 'blur(2px)' }}
+              >
+                ✕
+              </button>
               <img src={src} alt={alt} onError={handleImgError} className="max-w-full max-h-[80vh] object-contain block mx-auto" />
             </div>
             <div className="text-center text-sm text-gray-200 mt-3">{alt}</div>
@@ -63,18 +88,18 @@ function ImageWithModal({ src, alt, className = 'w-[72%] max-w-[220px] h-36 mx-a
   );
 }
 
-/* ------------------ Normalización de producto (ahora con promo) ------------------ */
+/* ---------- Normalización de producto (con promo) ---------- */
 function normalizeProduct(raw, idFallback) {
   const name = (raw.name ?? raw.Nombre ?? raw.nombre ?? '').toString().trim();
   const price = parsePrice(raw.price ?? raw.Precio ?? raw.precio ?? raw.Price);
   const description = (raw.description ?? raw.Descripcion ?? raw.descripcion ?? raw.short ?? '').toString();
   const category = (raw.category ?? raw.Categoria ?? raw.categoria ?? 'Sin categoría').toString();
 
-  // promo price: puede venir en varias columnas: promo, Promo, promo_price
+  // promo price: acepta varias cabeceras
   const promoRaw = (raw.promo ?? raw.Promo ?? raw.PROMO ?? raw.promo_price ?? raw['promo price'] ?? raw['promo_price'] ?? '').toString().trim();
   const promo = promoRaw ? parsePrice(promoRaw) : null;
 
-  // promo end date (texto libre) - varias variantes de nombres
+  // promo end - texto libre
   const promoEndRaw = (
     raw['fecha final de promo'] ??
     raw['fecha_final_de_promo'] ??
@@ -93,9 +118,9 @@ function normalizeProduct(raw, idFallback) {
   if (!image) {
     image = `./src/${slugify(name)}.jpg`;
   } else if (/^https?:\/\//i.test(image)) {
-    // url completa
+    /* keep */
   } else if (image.startsWith('./') || image.startsWith('/')) {
-    // usar tal cual
+    /* keep */
   } else if (image.startsWith('src/')) {
     image = `./${image}`;
   } else {
@@ -113,32 +138,28 @@ function normalizeProduct(raw, idFallback) {
     description,
     category,
     image,
-    promo: promo && promo > 0 ? promo : null, // null si no hay promo válida
-    promoEnd, // texto libre
+    promo: promo && promo > 0 ? promo : null,
+    promoEnd,
   };
 }
 
-/* ------------------ App principal ------------------ */
+/* ---------- App principal (UI "pro") ---------- */
 function DulceriaApp() {
-  // products cargados
   const [products, setProducts] = useState([]);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('Todos');
+  const [order, setOrder] = useState('default'); // default, price-asc, price-desc, promo
 
-  // orden: 'default' | 'price-asc' | 'price-desc' | 'promo'
-  const [order, setOrder] = useState('default');
-
-  // paginación
+  // pagination 20 per page
   const perPage = 20;
   const [page, setPage] = useState(1);
 
   const [cart, setCart] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
 
-  // intentamos cargar products.xlsx o products.json al iniciar
+  // load products.xlsx or products.json
   useEffect(() => {
     let mounted = true;
-
     async function tryLoadXlsx() {
       try {
         const res = await fetch('./products.xlsx', { cache: 'no-store' });
@@ -150,7 +171,6 @@ function DulceriaApp() {
         let sheetName = workbook.SheetNames.find(n => preferNames.includes(n)) || workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
         const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
-
         const mapped = rows.map((r, i) => normalizeProduct(r, i + 1));
         if (mounted) setProducts(mapped);
         return true;
@@ -158,7 +178,6 @@ function DulceriaApp() {
         return false;
       }
     }
-
     async function tryLoadJson() {
       try {
         const res = await fetch('./products.json', { cache: 'no-store' });
@@ -172,22 +191,20 @@ function DulceriaApp() {
         return false;
       }
     }
-
     (async () => {
       const okXlsx = await tryLoadXlsx();
       if (!okXlsx) await tryLoadJson();
     })();
-
     return () => { mounted = false; };
   }, []);
 
-  // categorías dinámicas
+  // categories dynamic
   const categories = useMemo(() => {
     const set = new Set(['Todos', ...products.map(p => p.category ?? 'Sin categoría')]);
     return Array.from(set);
   }, [products]);
 
-  // filtrado por búsqueda y categoría
+  // filter by query + category
   const filteredBase = useMemo(() => {
     const q = query.trim().toLowerCase();
     return products.filter(p => {
@@ -197,15 +214,14 @@ function DulceriaApp() {
     });
   }, [products, category, query]);
 
-  // ordenamiento
+  // sorting
   const filteredSorted = useMemo(() => {
     const arr = [...filteredBase];
     if (order === 'price-asc') {
-      arr.sort((a, b) => ( (a.promo ?? a.price) - (b.promo ?? b.price) ));
+      arr.sort((a, b) => ((a.promo ?? a.price) - (b.promo ?? b.price)));
     } else if (order === 'price-desc') {
-      arr.sort((a, b) => ( (b.promo ?? b.price) - (a.promo ?? a.price) ));
+      arr.sort((a, b) => ((b.promo ?? b.price) - (a.promo ?? a.price)));
     } else if (order === 'promo') {
-      // promos primero, ordenadas por precio de promo asc; luego el resto por precio normal asc
       arr.sort((a, b) => {
         const aHas = a.promo ? 0 : 1;
         const bHas = b.promo ? 0 : 1;
@@ -217,18 +233,15 @@ function DulceriaApp() {
     return arr;
   }, [filteredBase, order]);
 
-  // paginado
   const totalPages = Math.max(1, Math.ceil(filteredSorted.length / perPage));
-  useEffect(() => {
-    if (page > totalPages) setPage(1);
-  }, [totalPages]); // reset page if totalPages changed
+  useEffect(() => { if (page > totalPages) setPage(1); }, [totalPages]);
 
   const visibleProducts = useMemo(() => {
     const start = (page - 1) * perPage;
     return filteredSorted.slice(start, start + perPage);
   }, [filteredSorted, page]);
 
-  // carrito
+  // cart functions
   function addToCart(product) {
     setCart(prev => {
       const found = prev.find(x => x.id === product.id);
@@ -262,53 +275,59 @@ function DulceriaApp() {
     window.open(`https://wa.me/?text=${text}`, '_blank');
   }
 
-  // paginación handlers
+  // pagination handlers
   function goPrev() { setPage(p => Math.max(1, p - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }
   function goNext() { setPage(p => Math.min(totalPages, p + 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }
-  function goTo(n) { setPage(Math.max(1, Math.min(totalPages, n))); window.scrollTo({ top: 0, behavior: 'smooth' }); }
 
+  /* ---------- UI ---------- */
   return (
     <div className="min-h-screen bg-gray-50 text-gray-800">
-      {/* Header fijo con color de fondo */}
-      <header className="sticky top-0 z-50" style={{ background: 'linear-gradient(90deg,#ff7ab6,#ffb3d5)' }}>
-        <div className="max-w-6xl mx-auto px-3 sm:px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="flex-shrink-0">
-              <img src="./src/logo.png" alt="Dulcería La Fiesta" onError={(e)=>{e.target.style.display='none';}} className="h-12 sm:h-14 object-contain" />
+      {/* Header: sticky, con gradiente y sombra */}
+      <header className="sticky top-0 z-50 shadow-sm">
+        <div className="bg-gradient-to-r from-pink-500 via-pink-400 to-rose-200">
+          <div className="max-w-6xl mx-auto px-3 sm:px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-4 min-w-0">
+              <div className="flex-shrink-0">
+                <img src="./src/logo.png" alt="Dulcería La Fiesta" onError={(e)=>{e.target.style.display='none';}} className="h-12 sm:h-14 object-contain" />
+              </div>
+              <div className="truncate text-white">
+                <div className="text-lg sm:text-xl font-bold leading-tight">Dulcería La Fiesta</div>
+                <div className="text-xs sm:text-sm opacity-90">Dulces y sorpresas</div>
+              </div>
             </div>
-            <div className="truncate">
-              <div className="text-lg sm:text-xl font-bold text-white truncate">Dulcería La Fiesta</div>
-              <div className="text-xs text-white/90 truncate">Dulces y sorpresas</div>
+
+            <div className="flex items-center gap-3">
+              <select aria-label="Ordenar productos" value={order} onChange={(e)=>{ setOrder(e.target.value); setPage(1); }} className="text-sm rounded px-2 py-1 bg-white/90">
+                <option value="default">Orden: recomendado</option>
+                <option value="price-asc">Precio: más bajo</option>
+                <option value="price-desc">Precio: más alto</option>
+                <option value="promo">Promociones</option>
+              </select>
+
+              <button onClick={() => setCartOpen(true)} className="relative p-2 rounded-md bg-white/90 hover:bg-white" aria-label="Abrir carrito">
+                <img src="./src/carrito.png" alt="Carrito" onError={(e)=>{ e.target.style.display='none'; }} className="h-6 w-6 object-contain" />
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4" />
+                </svg>
+                {cart.length > 0 && <span className="absolute -right-2 -top-2 bg-pink-600 text-white text-xs rounded-full px-1.5">{cart.length}</span>}
+              </button>
             </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {/* select ordenar (visible en mobile también) */}
-            <label className="sr-only">Ordenar</label>
-            <select value={order} onChange={(e)=>{ setOrder(e.target.value); setPage(1); }} className="text-sm rounded px-2 py-1">
-              <option value="default">Orden: recomendado</option>
-              <option value="price-asc">Precio: más bajo</option>
-              <option value="price-desc">Precio: más alto</option>
-              <option value="promo">Promociones</option>
-            </select>
-
-            {/* carrito (icono) */}
-            <button onClick={() => setCartOpen(true)} className="relative p-2 rounded-md bg-white/80 hover:bg-white" aria-label="Abrir carrito">
-              <img src="./src/carrito.png" alt="Carrito" onError={(e)=>{ e.target.style.display='none'; }} className="h-6 w-6 object-contain" />
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4" />
-              </svg>
-              {cart.length > 0 && <span className="absolute -right-2 -top-2 bg-pink-600 text-white text-xs rounded-full px-1.5">{cart.length}</span>}
-            </button>
           </div>
         </div>
       </header>
 
       <main className="max-w-6xl mx-auto px-3 sm:px-4 py-4">
+        {/* Search / Category */}
         <section className="bg-white rounded-lg p-3 sm:p-4 shadow-sm mb-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="col-span-1 md:col-span-2 flex items-center gap-2">
-              <input aria-label="Buscar productos" value={query} onChange={e => { setQuery(e.target.value); setPage(1); }} className="w-full border rounded px-3 py-2 text-sm" placeholder="Buscar por nombre o categoría..." />
+            <div className="col-span-1 md:col-span-2">
+              <input
+                aria-label="Buscar productos"
+                value={query}
+                onChange={e => { setQuery(e.target.value); setPage(1); }}
+                className="w-full border rounded px-3 py-2 text-sm shadow-sm"
+                placeholder="Buscar por nombre, categoría o descripción..."
+              />
             </div>
 
             <div className="flex gap-2 items-center justify-end">
@@ -321,34 +340,57 @@ function DulceriaApp() {
           </div>
         </section>
 
+        {/* Products */}
         <section>
-          <h2 className="text-lg font-semibold mb-3">Productos ({filteredSorted.length})</h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold">Productos</h2>
+            <div className="text-sm text-gray-600">Mostrando {Math.min(filteredSorted.length, (page - 1) * perPage + 1)}–{Math.min(filteredSorted.length, page * perPage)} de {filteredSorted.length}</div>
+          </div>
 
           {visibleProducts.length === 0 ? (
-            <div className="bg-white rounded-lg p-6 text-center shadow">No se encontraron productos.</div>
+            <div className="bg-white rounded-lg p-8 text-center shadow">
+              <div className="text-gray-400 text-lg mb-3">No se encontraron productos</div>
+              <div className="text-sm text-gray-500">Revisa tu archivo <code>products.xlsx</code> o la carpeta <code>src/</code> con imágenes.</div>
+            </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
               {visibleProducts.map(p => (
-                <article key={p.id} className="bg-white rounded shadow-sm overflow-hidden flex flex-col">
-                  <ImageWithModal src={p.image || `./src/${slugify(p.name)}.jpg`} alt={p.name} className="w-[72%] max-w-[220px] h-36 mx-auto mt-3" imgClass="object-contain" />
-                  <div className="p-3 flex-1 flex flex-col">
-                    <h3 className="font-semibold text-sm sm:text-base truncate">{p.name}</h3>
-                    <p className="text-xs sm:text-sm text-gray-500 flex-1">{p.short || p.description}</p>
+                <article
+                  key={p.id}
+                  className="relative bg-white rounded-lg shadow-sm hover:shadow-lg transition transform hover:-translate-y-1 focus-within:shadow-lg"
+                >
+                  {/* promo badge */}
+                  {p.promo ? <BadgePromo /> : null}
+
+                  <div className="p-4 flex flex-col h-full">
+                    <div className="mb-3">
+                      <ImageWithModal src={p.image || `./src/${slugify(p.name)}.jpg`} alt={p.name} className="w-[72%] max-w-[220px] h-36 mx-auto" imgClass="object-contain" />
+                    </div>
+
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-sm sm:text-base truncate mb-1">{p.name}</h3>
+                      <p className="text-xs sm:text-sm text-gray-500 mb-3 line-clamp-2">{p.short || p.description}</p>
+                    </div>
 
                     <div className="mt-3 flex items-center justify-between">
                       <div className="flex flex-col">
                         {p.promo ? (
                           <>
                             <div className="text-sm text-gray-400 line-through">{moneyFmt.format(p.price || 0)}</div>
-                            <div className="text-lg font-bold text-pink-600">{moneyFmt.format(p.promo)}</div>
-                            {p.promoEnd && <div className="text-xs text-gray-500">Precio promo (válida hasta {p.promoEnd})</div>}
+                            <div className="text-lg font-extrabold text-pink-600">{moneyFmt.format(p.promo)}</div>
+                            {p.promoEnd && <div className="text-xs text-gray-500 mt-1">Promo válida hasta {p.promoEnd}</div>}
                           </>
                         ) : (
                           <div className="text-lg font-bold">{moneyFmt.format(p.price || 0)}</div>
                         )}
                       </div>
 
-                      <button onClick={() => addToCart(p)} className="px-3 py-2 bg-pink-500 text-white rounded text-sm">Agregar</button>
+                      <button
+                        onClick={() => addToCart(p)}
+                        className="ml-3 inline-flex items-center px-3 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded shadow-sm text-sm"
+                      >
+                        Agregar
+                      </button>
                     </div>
                   </div>
                 </article>
@@ -356,12 +398,17 @@ function DulceriaApp() {
             </div>
           )}
 
-          {/* paginación */}
-          <div className="mt-6 flex items-center justify-between">
-            <div className="text-sm text-gray-600">Página {page} de {totalPages}</div>
+          {/* pagination */}
+          <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="text-sm text-gray-600">Página {page} / {totalPages}</div>
             <div className="flex items-center gap-2">
-              <button onClick={goPrev} disabled={page === 1} className="px-3 py-1 border rounded text-sm disabled:opacity-50">Prev</button>
-              <button onClick={goNext} disabled={page === totalPages} className="px-3 py-1 border rounded text-sm disabled:opacity-50">Next</button>
+              <button onClick={() => { if (page > 1) { setPage(page - 1); window.scrollTo({ top: 0, behavior: 'smooth' }); } }} disabled={page === 1} className="px-3 py-2 border rounded disabled:opacity-50">Anterior</button>
+              <div className="hidden sm:flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).slice(Math.max(0, page - 3), Math.min(totalPages, page + 2)).map(n => (
+                  <button key={n} onClick={() => { setPage(n); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`px-3 py-2 rounded ${n === page ? 'bg-pink-600 text-white' : 'border bg-white'}`}>{n}</button>
+                ))}
+              </div>
+              <button onClick={() => { if (page < totalPages) { setPage(page + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); } }} disabled={page === totalPages} className="px-3 py-2 border rounded disabled:opacity-50">Siguiente</button>
             </div>
           </div>
         </section>
@@ -412,4 +459,5 @@ function DulceriaApp() {
   );
 }
 
+/* expose */
 window.DulceriaApp = DulceriaApp;
