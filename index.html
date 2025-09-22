@@ -3,13 +3,13 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-    <title>Dulcería La Fiesta</title>
-    <meta name="description" content="Catálogo de Dulcería La Fiesta — carga productos desde products.xlsx en el repo." />
+    <title>Dulcería La Fiesta - Debug</title>
+    <meta name="description" content="Debug index para Dulcería" />
 
-    <!-- Tailwind CDN -->
+    <!-- Tailwind -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- React + ReactDOM UMD -->
+    <!-- React + ReactDOM (UMD, dev) -->
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
 
@@ -17,25 +17,30 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <!-- SheetJS (XLSX) -->
-    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
 
-    <style>
-      body { -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; }
-      /* small improvement to prevent content under status bar on iOS */
-      @supports(padding: max(0px)) {
-        body { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
-      }
-    </style>
+    <style>body{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;} </style>
   </head>
 
   <body class="antialiased bg-gray-50">
-    <noscript class="p-4 text-center text-red-600">
-      Esta app requiere JavaScript. Habilita JavaScript para ver el catálogo.
-    </noscript>
+    <noscript class="p-4 text-center text-red-600">Activa JavaScript para ver la app.</noscript>
 
     <div id="root"></div>
 
+    <!-- small debug logger: mostrará si las librerías cargaron -->
+    <script>
+      console.log('DEBUG libs:',
+        'React=', typeof React,
+        'ReactDOM=', typeof ReactDOM,
+        'Babel=', typeof Babel,
+        'XLSX=', typeof XLSX
+      );
+    </script>
+
+    <!-- tu componente (JSX) -->
     <script type="text/babel" src="./dulceria.jsx"></script>
+
+    <!-- monta -->
     <script type="text/babel" src="./render.js"></script>
   </body>
 </html>
