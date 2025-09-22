@@ -4,15 +4,36 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
     <title>Dulcería La Fiesta</title>
+    <meta name="description" content="Catálogo de Dulcería La Fiesta — carga productos desde products.xlsx o JSON." />
+
+    <!-- Tailwind CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- React + ReactDOM UMD -->
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+
+    <!-- Babel standalone -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- SheetJS -->
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+
+    <style>
+      body { -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; }
+      @supports(padding: max(0px)) {
+        body { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+      }
+    </style>
   </head>
+
   <body class="antialiased bg-gray-50">
+    <noscript class="p-4 text-center text-red-600">Activa JavaScript para ver la app.</noscript>
     <div id="root"></div>
+
+    <!-- Componente principal -->
     <script type="text/babel" src="./dulceria.jsx"></script>
+    <!-- Montaje -->
     <script type="text/babel" src="./render.js"></script>
   </body>
 </html>
