@@ -200,4 +200,114 @@ function DulceriaApp() {
   return (
     <div className="min-h-screen bg-gray-50 text-gray-800 relative">
       {/* Header */}
-      <header className="sticky top-0 z-50 shadow-sm bg-gradient-to-r from-pink-500 via-pink-400 to-rose-200
+      <header className="sticky top-0 z-50 shadow-sm bg-gradient-to-r from-pink-500 via-pink-400 to-rose-200">
+        <div className="max-w-6xl mx-auto px-3 sm:px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3 min-w-0 cursor-pointer" onClick={() => window.location.reload()}>
+            <img src="./src/logo.png" alt="Dulcería La Fiesta" className="h-12 sm:h-14 object-contain" onError={e => e.target.style.display = 'none'} />
+            <div className="truncate text-white">
+              <div className="text-lg sm:text-xl font-bold leading-tight">Dulcería La Fiesta</div>
+              <div className="text-xs sm:text-sm opacity-90">Dulces y sorpresas</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <select value={order} onChange={e => { setOrder(e.target.value); setPage(1); }} className="text-sm rounded px-2 py-1 bg-white/90">
+              <option value="default">Orden: recomendado</option>
+              <option value="price-asc">Precio: más bajo</option>
+              <option value="price-desc">Precio: más alto</option>
+              <option value="promo">Promociones</option>
+            </select>
+            <button onClick={() => setCartOpen(true)} className="relative p-2 rounded-md bg-white/90 hover:bg-white" aria-label="Abrir carrito">
+              <img src="./src/carrito.png" alt="Carrito" className="h-6 w-6 object-contain" onError={e => e.target.style.display = 'none'} />
+              {cart.length > 0 && <span className="absolute -right-1 -top-1 bg-pink-600 text-white text-xs rounded-full px-1">{cart.length}</span>}
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Main */}
+      <main className="max-w-6xl mx-auto px-3 sm:px-4 py-4">
+        {/* Categorías y búsqueda */}
+        <div className="flex flex-col sm:flex-row gap-2 mb-4 items-center justify-between">
+          <select value={category} onChange={e => { setCategory(e.target.value); setPage(1); }} className="rounded px-2 py-1 bg-white/90 w-full sm:w-auto">
+            {categories.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <input
+            type="text"
+            placeholder="Buscar productos..."
+            value={query}
+            onChange={e => { setQuery(e.target.value); setPage(1); }}
+            className="rounded px-2 py-1 w-full sm:w-64 mt-2 sm:mt-0"
+          />
+        </div>
+
+        {/* Productos */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+          {visible.map(p => (
+            <div key={p.id} className="bg-white rounded shadow-sm p-2 flex flex-col relative">
+              {p.promo && <BadgePromo text="PROMO" />}
+              <ImageWithModal src={p.image} alt={p.name} />
+              <div className="mt-2 text-sm font-semibold">{p.name}</div>
+              <div className="text-xs text-gray-600">{p.short}</div>
+              <div className="mt-1 text-sm font-bold text-pink-600">{moneyFmt.format(p.promo ?? p.price)}</div>
+              <button onClick={() => addToCart(p)} className="mt-2 bg-pink-500 text-white rounded px-2 py-1 text-sm hover:bg-pink-600">
+                Agregar
+              </button>
+            </div>
+          ))}
+        </div>
+
+        {/* Paginación */}
+        <div className="flex justify-center gap-2 mt-4 flex-wrap">
+          <button onClick={goPrev} disabled={page===1} className="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300 disabled:opacity-50">Anterior</button>
+          <span className="px-2 py-1 text-sm">Página {page} / {totalPages}</span>
+          <button onClick={goNext} disabled={page===totalPages} className="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300 disabled:opacity-50">Siguiente</button>
+        </div>
+      </main>
+
+      {/* Botón WhatsApp fijo */}
+      <button
+        onClick={openWhatsApp}
+        className="fixed bottom-4 right-4 z-50 bg-green-500 hover:bg-green-600 text-white px-4 py-3 rounded-full shadow-lg flex items-center gap-2"
+      >
+        <img src="https://img.icons8.com/ios-filled/24/ffffff/whatsapp.png" alt="WhatsApp" />
+        Pedido
+      </button>
+
+      {/* Carrito modal */}
+      {cartOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black bg-opacity-60 flex justify-end"
+          onClick={() => setCartOpen(false)}
+        >
+          <div className="bg-white w-80 max-w-full h-full p-4 flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-2">
+              <div className="font-bold text-lg">Carrito</div>
+              <button onClick={() => setCartOpen(false)} className="text-gray-600 hover:text-gray-900">✕</button>
+            </div>
+            <div className="flex-1 overflow-auto">
+              {cart.length === 0 && <div className="text-gray-500 text-sm">Carrito vacío</div>}
+              {cart.map(p => (
+                <div key={p.id} className="flex items-center justify-between mb-2 border-b pb-1">
+                  <div>
+                    <div className="text-sm font-semibold">{p.name}</div>
+                    <div className="text-xs text-gray-600">{moneyFmt.format(p.promo ?? p.price)}</div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <input type="number" min="1" value={p.qty} onChange={e => updateQty(p.id, e.target.value)} className="w-12 text-sm border rounded px-1 py-0.5" />
+                    <button onClick={() => removeFromCart(p.id)} className="text-red-500 hover:text-red-700 text-sm">✕</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-2 border-t pt-2">
+              <div className="flex justify-between text-sm"><span>Subtotal</span><span>{moneyFmt.format(subtotal)}</span></div>
+              <div className="flex justify-between text-sm"><span>Impuestos</span><span>{moneyFmt.format(taxes)}</span></div>
+              <div className="flex justify-between font-bold text-sm"><span>Total</span><span>{moneyFmt.format(total)}</span></div>
+            </div>
+            <button onClick={openWhatsApp} className="mt-3 w-full bg-green-500 hover:bg-green-600 text-white py-2 rounded">Pedir por WhatsApp</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
