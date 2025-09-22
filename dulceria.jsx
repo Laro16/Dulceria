@@ -1,40 +1,40 @@
 /* dulceria.jsx
-   Carga automática de ./products.xlsx o ./products.json y muestra catálogo.
-   Imágenes buscadas en ./src/ por defecto. No hay botón de upload en la UI.
+   Versión actualizada:
+   - imagenes en contenedor más estrecho
+   - logo desde ./src/logo.png
+   - precios en Q (GTQ)
+   - imagen carrito visible completa
+   - optimizaciones móviles
 */
 
 const { useState, useMemo, useEffect } = React;
 
 /* ------------------ Helpers ------------------ */
-
-// slugify seguro (quita acentos, ñ->n, minúsculas, espacios->-)
 function slugify(text) {
   return String(text || '')
     .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '') // quitar acentos
+    .replace(/[\u0300-\u036f]/g, '')
     .replace(/ñ/g, 'n').replace(/Ñ/g, 'n')
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-') // no alfanum -> guion
+    .toLowerCase().trim()
+    .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
 }
-
 function parsePrice(v) {
   if (v == null) return 0;
   const s = String(v).trim().replace(/\s+/g, '');
   const n = parseFloat(s.replace(/[^\d.,-]/g, '').replace(',', '.'));
   return Number.isFinite(n) ? n : 0;
 }
-
-// reemplazo de onError por placeholder
 function handleImgError(e) {
   e.target.onerror = null;
   e.target.src = 'https://via.placeholder.com/600x400?text=Sin+imagen';
 }
 
-/* ------------------ Image + Modal ------------------ */
-/* Muestra imagen adaptada (object-contain) y modal al click */
-function ImageWithModal({ src, alt, className = 'w-full h-40', imgClass = 'object-contain' }) {
+// formatter para moneda Quetzal (Q)
+const moneyFmt = new Intl.NumberFormat('es-GT', { style: 'currency', currency: 'GTQ', maximumFractionDigits: 2 });
+
+/* ------------------ Image + Modal (adaptativa) ------------------ */
+function ImageWithModal({ src, alt, className = 'w-11/12 h-36 mx-auto', imgClass = 'object-contain' }) {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -64,7 +64,7 @@ function ImageWithModal({ src, alt, className = 'w-full h-40', imgClass = 'objec
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75 p-4"
           onClick={() => setOpen(false)}
         >
           <div className="max-w-[95%] max-h-[95%] overflow-auto rounded" onClick={(e) => e.stopPropagation()}>
@@ -72,7 +72,7 @@ function ImageWithModal({ src, alt, className = 'w-full h-40', imgClass = 'objec
               <button
                 onClick={() => setOpen(false)}
                 aria-label="Cerrar"
-                className="absolute top-2 right-2 z-10 rounded bg-black/40 text-white p-1"
+                className="absolute top-2 right-2 z-10 rounded bg-black/40 text-white p-2"
                 style={{ backdropFilter: 'blur(2px)' }}
               >
                 ✕
@@ -93,8 +93,7 @@ function ImageWithModal({ src, alt, className = 'w-full h-40', imgClass = 'objec
   );
 }
 
-/* ------------------ Normalización de producto ------------------ */
-/* raw puede venir de Excel (XLSX -> sheet_to_json) o products.json */
+/* ------------------ Normalización ------------------ */
 function normalizeProduct(raw, idFallback) {
   const name = (raw.name ?? raw.Nombre ?? raw.nombre ?? '').toString().trim();
   const price = parsePrice(raw.price ?? raw.Precio ?? raw.precio ?? raw.Price);
@@ -102,30 +101,19 @@ function normalizeProduct(raw, idFallback) {
   const category = (raw.category ?? raw.Categoria ?? raw.categoria ?? 'Sin categoría').toString();
   let rawImage = (raw.image ?? raw.Imagen ?? raw.imagen ?? raw.Image ?? '').toString().trim();
 
-  // reglas para interpretar la columna image:
-  // - si es URL absoluta -> usar tal cual
-  // - si empieza con './' o '/' -> usar tal cual
-  // - si empieza con 'src/' -> convertir a './src/...' (permitir usuarios que escriban 'src/...')
-  // - si es vacío -> './src/<slug-del-nombre>.jpg'
-  // - si es simple 'carpeta/archivo.jpg' o 'archivo.jpg' -> './src/<lo-que-escribieron>'
-  // - si no tiene extensión se añade .jpg
   let image = rawImage;
-
   if (!image) {
     image = `./src/${slugify(name)}.jpg`;
   } else if (/^https?:\/\//i.test(image)) {
-    // URL completa: usar tal cual
+    // usar tal cual
   } else if (image.startsWith('./') || image.startsWith('/')) {
-    // ruta relativa ya válida: usar tal cual
+    // usar tal cual
   } else if (image.startsWith('src/')) {
-    // convertir a ./src/...
     image = `./${image}`;
   } else {
-    // nombre simple o subruta -> colocar dentro de ./src/
     image = `./src/${image}`;
   }
 
-  // si no tiene extensión al final, agregar .jpg
   if (!/\.[a-zA-Z0-9]{2,5}$/.test(image) && !/^https?:\/\//i.test(image)) {
     image = `${image}.jpg`;
   }
@@ -141,9 +129,9 @@ function normalizeProduct(raw, idFallback) {
   };
 }
 
-/* ------------------ Componente principal ------------------ */
+/* ------------------ App principal ------------------ */
 function DulceriaApp() {
-  const [products, setProducts] = useState([]); // vacíos hasta cargar products.xlsx/json
+  const [products, setProducts] = useState([]);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('Todos');
   const [minPrice, setMinPrice] = useState(0);
@@ -153,11 +141,8 @@ function DulceriaApp() {
   const [cart, setCart] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
 
-  // carga automática: primero products.xlsx (primera hoja), si no existe intenta products.json
   useEffect(() => {
     let mounted = true;
-
-    // intenta cargar xlsx
     async function tryLoadXlsx() {
       try {
         const res = await fetch('./products.xlsx', { cache: 'no-store' });
@@ -165,7 +150,6 @@ function DulceriaApp() {
         const ab = await res.arrayBuffer();
         const workbook = XLSX.read(ab, { type: 'array' });
 
-        // buscar hoja llamada Products/Productos si existe, sino usar la primera
         const preferNames = ['Products', 'products', 'Productos', 'productos', 'Sheet1'];
         let sheetName = workbook.SheetNames.find(n => preferNames.includes(n)) || workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
@@ -178,7 +162,6 @@ function DulceriaApp() {
         return false;
       }
     }
-
     async function tryLoadJson() {
       try {
         const res = await fetch('./products.json', { cache: 'no-store' });
@@ -192,7 +175,6 @@ function DulceriaApp() {
         return false;
       }
     }
-
     (async () => {
       const okXlsx = await tryLoadXlsx();
       if (!okXlsx) await tryLoadJson();
@@ -201,13 +183,11 @@ function DulceriaApp() {
     return () => { mounted = false; };
   }, []);
 
-  // categorías derivadas
   const categories = useMemo(() => {
     const set = new Set(['Todos', ...products.map(p => p.category ?? 'Sin categoría')]);
     return Array.from(set);
   }, [products]);
 
-  // filtrado y busqueda
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return products
@@ -218,7 +198,6 @@ function DulceriaApp() {
 
   const visibleProducts = filtered.slice(0, visibleCount);
 
-  // carrito
   function addToCart(product) {
     setCart(prev => {
       const found = prev.find(x => x.id === product.id);
@@ -226,12 +205,8 @@ function DulceriaApp() {
       return [...prev, { ...product, qty: 1 }];
     });
   }
-  function updateQty(id, qty) {
-    setCart(prev => prev.map(p => p.id === id ? { ...p, qty: Math.max(1, Number(qty) || 1) } : p));
-  }
-  function removeFromCart(id) {
-    setCart(prev => prev.filter(p => p.id !== id));
-  }
+  function updateQty(id, qty) { setCart(prev => prev.map(p => p.id === id ? { ...p, qty: Math.max(1, Number(qty) || 1) } : p)); }
+  function removeFromCart(id) { setCart(prev => prev.filter(p => p.id !== id)); }
 
   const subtotal = cart.reduce((s, p) => s + (p.price || 0) * p.qty, 0);
   const taxes = +(subtotal * 0.12).toFixed(2);
@@ -240,10 +215,10 @@ function DulceriaApp() {
   function generateWhatsAppMessage() {
     if (cart.length === 0) return '';
     let lines = ['Pedido desde Dulcería:\n'];
-    cart.forEach(p => lines.push(`${p.qty} x ${p.name} - $${(p.price * p.qty).toFixed(2)}`));
-    lines.push(`\nSubtotal: $${subtotal.toFixed(2)}`);
-    lines.push(`Impuestos: $${taxes.toFixed(2)}`);
-    lines.push(`Total: $${total.toFixed(2)}`);
+    cart.forEach(p => lines.push(`${p.qty} x ${p.name} - ${moneyFmt.format((p.price || 0) * p.qty)}`));
+    lines.push(`\nSubtotal: ${moneyFmt.format(subtotal)}`);
+    lines.push(`Impuestos: ${moneyFmt.format(taxes)}`);
+    lines.push(`Total: ${moneyFmt.format(total)}`);
     lines.push('\nDatos de entrega: (escribe aquí tu nombre, dirección y teléfono)');
     return encodeURIComponent(lines.join('\n'));
   }
@@ -256,29 +231,36 @@ function DulceriaApp() {
   return (
     <div className="min-h-screen bg-gray-50 text-gray-800">
       <header className="bg-white shadow">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-pink-400 rounded-full flex items-center justify-center text-white font-bold">D</div>
+            {/* logo desde ./src/logo.png (fallback a letra D) */}
+            <div className="w-10 h-10 rounded-full overflow-hidden bg-pink-400 flex items-center justify-center">
+              <img
+                src="./src/logo.png"
+                alt="Logo"
+                onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; }}
+                className="w-full h-full object-contain"
+              />
+              {/* fallback letra D (visible si no existe logo.png) */}
+              <span className="text-white font-bold select-none">D</span>
+            </div>
+
             <div>
-              <h1 className="text-xl font-bold">Dulcería La Fiesta</h1>
-              <p className="text-sm text-gray-500">Catálogo — imágenes en <code>./src/</code></p>
+              <h1 className="text-lg sm:text-xl font-bold">Dulcería La Fiesta</h1>
+              <p className="text-xs sm:text-sm text-gray-500">Catálogo — imágenes en <code className="text-xs">./src/</code></p>
             </div>
           </div>
 
-          <nav className="hidden md:flex gap-4 items-center">
+          <nav className="hidden md:flex gap-3 items-center">
             {categories.map(c => (
-              <button
-                key={c}
-                className={`px-3 py-2 rounded ${category === c ? 'bg-pink-100 text-pink-700' : 'hover:bg-gray-100'}`}
-                onClick={() => setCategory(c)}
-              >
+              <button key={c} className={`px-3 py-2 rounded ${category === c ? 'bg-pink-100 text-pink-700' : 'hover:bg-gray-100'}`} onClick={() => setCategory(c)}>
                 {c}
               </button>
             ))}
           </nav>
 
           <div className="flex items-center gap-3">
-            <button onClick={() => setCartOpen(true)} className="relative">
+            <button onClick={() => setCartOpen(true)} className="relative p-2 rounded-md bg-white hover:bg-gray-50">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4" />
               </svg>
@@ -288,22 +270,22 @@ function DulceriaApp() {
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-4 py-6">
-        <section className="bg-white rounded-lg p-4 shadow-sm mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <main className="max-w-6xl mx-auto px-3 sm:px-4 py-5">
+        <section className="bg-white rounded-lg p-3 sm:p-4 shadow-sm mb-5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="col-span-1 md:col-span-2 flex items-center gap-2">
-              <input aria-label="Buscar productos" value={query} onChange={e => setQuery(e.target.value)} className="w-full border rounded px-3 py-2" placeholder="Buscar por nombre o categoría..." />
+              <input aria-label="Buscar productos" value={query} onChange={e => setQuery(e.target.value)} className="w-full border rounded px-3 py-2 text-sm" placeholder="Buscar por nombre o categoría..." />
             </div>
 
-            <div className="flex gap-2 items-center">
-              <select value={category} onChange={e => setCategory(e.target.value)} className="border rounded px-3 py-2">
+            <div className="flex gap-2 items-center justify-end">
+              <select value={category} onChange={e => setCategory(e.target.value)} className="border rounded px-3 py-2 text-sm">
                 {categories.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
 
-              <input type="number" min={0} value={minPrice} onChange={e => setMinPrice(e.target.value)} className="w-20 border rounded px-2 py-2" placeholder="Min" />
-              <input type="number" min={0} value={maxPrice} onChange={e => setMaxPrice(e.target.value)} className="w-20 border rounded px-2 py-2" placeholder="Max" />
+              <input type="number" min={0} value={minPrice} onChange={e => setMinPrice(e.target.value)} className="w-20 border rounded px-2 py-2 text-sm" placeholder="Min" />
+              <input type="number" min={0} value={maxPrice} onChange={e => setMaxPrice(e.target.value)} className="w-20 border rounded px-2 py-2 text-sm" placeholder="Max" />
 
-              <button onClick={() => { setQuery(''); setCategory('Todos'); setMinPrice(0); setMaxPrice(10000); setVisibleCount(12); }} className="ml-2 px-3 py-2 border rounded">Limpiar</button>
+              <button onClick={() => { setQuery(''); setCategory('Todos'); setMinPrice(0); setMaxPrice(10000); setVisibleCount(12); }} className="ml-1 px-3 py-2 border rounded text-sm">Limpiar</button>
             </div>
           </div>
         </section>
@@ -317,13 +299,13 @@ function DulceriaApp() {
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {visibleProducts.map(p => (
                 <article key={p.id} className="bg-white rounded shadow-sm overflow-hidden flex flex-col">
-                  <ImageWithModal src={p.image || `./src/${slugify(p.name)}.jpg`} alt={p.name} className="w-full h-40" imgClass="object-contain" />
+                  <ImageWithModal src={p.image || `./src/${slugify(p.name)}.jpg`} alt={p.name} className="w-11/12 h-36 mx-auto mt-3" imgClass="object-contain" />
                   <div className="p-3 flex-1 flex flex-col">
-                    <h3 className="font-semibold">{p.name}</h3>
-                    <p className="text-sm text-gray-500 flex-1">{p.short || p.description}</p>
+                    <h3 className="font-semibold text-sm sm:text-base">{p.name}</h3>
+                    <p className="text-xs sm:text-sm text-gray-500 flex-1">{p.short || p.description}</p>
                     <div className="mt-3 flex items-center justify-between">
-                      <div className="text-lg font-bold">${(p.price || 0).toFixed(2)}</div>
-                      <button onClick={() => addToCart(p)} className="px-3 py-1 bg-pink-500 text-white rounded">Agregar al carrito</button>
+                      <div className="text-base sm:text-lg font-bold">{moneyFmt.format(p.price || 0)}</div>
+                      <button onClick={() => addToCart(p)} className="px-3 py-2 bg-pink-500 text-white rounded text-sm sm:text-sm">Agregar</button>
                     </div>
                   </div>
                 </article>
@@ -353,36 +335,4 @@ function DulceriaApp() {
           {cart.length === 0 ? (
             <div className="text-center text-gray-500">No hay productos en el carrito.</div>
           ) : (
-            cart.map(p => (
-              <div key={p.id} className="flex items-center gap-3">
-                <ImageWithModal src={p.image || `./src/${slugify(p.name)}.jpg`} alt={p.name} className="w-16 h-12" imgClass="object-contain" />
-                <div className="flex-1">
-                  <div className="font-semibold">{p.name}</div>
-                  <div className="text-sm text-gray-500">${(p.price || 0).toFixed(2)}</div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input type="number" value={p.qty} min={1} onChange={e => updateQty(p.id, e.target.value)} className="w-16 border rounded px-2 py-1" />
-                  <button onClick={() => removeFromCart(p.id)} className="text-sm text-red-500">Eliminar</button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-
-        <div className="p-4 border-t">
-          <div className="flex justify-between mb-2"><span>Subtotal</span><span>${subtotal.toFixed(2)}</span></div>
-          <div className="flex justify-between mb-2"><span>Impuestos</span><span>${taxes.toFixed(2)}</span></div>
-          <div className="flex justify-between font-bold text-lg mb-4"><span>Total</span><span>${total.toFixed(2)}</span></div>
-
-          <button onClick={openWhatsApp} className="w-full px-4 py-2 bg-green-600 text-white rounded mb-2">Ordenar por WhatsApp</button>
-          <button onClick={() => alert('Aquí podrías agregar checkout tradicional')} className="w-full px-4 py-2 border rounded">Checkout tradicional</button>
-        </div>
-      </div>
-
-      <footer className="mt-10 py-6 text-center text-sm text-gray-500">© {new Date().getFullYear()} Dulcería La Fiesta — Hecho con cariño</footer>
-    </div>
-  );
-}
-
-// Exponer en el scope global para render.js
-window.DulceriaApp = DulceriaApp;
+            cart.map
