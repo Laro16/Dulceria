@@ -1,49 +1,139 @@
 /* dulceria.jsx
    Versión preparada para ejecutarse con Babel standalone en el navegador.
    Usa React global (React, ReactDOM) y Tailwind desde CDN.
+   - Carga productos desde products.json (si existe) o desde un .xlsx que suba el usuario.
+   - Si no hay imagen para un producto intenta ./src/<slug-del-nombre>.jpg (o .png/.jpeg si prefieres renombrar).
 */
 
-const { useState, useMemo } = React;
+const { useState, useMemo, useEffect } = React;
 
+/** Helpers **/
+function slugify(text) {
+  return String(text)
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '') // quitar acentos
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-') // reemplaza todo lo no alfanum por guion
+    .replace(/^-+|-+$/g, '');
+}
+
+function parsePrice(v) {
+  if (v == null) return 0;
+  const n = parseFloat(String(v).toString().replace(/[^\d.,-]/g, '').replace(',', '.'));
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** Componente principal **/
 function DulceriaApp() {
-  // Sample product data (replace with API fetch if needed)
+  // Productos de ejemplo (fallback)
   const initialProducts = [
-    { id: 1, category: "Sorpresas", name: "Caja Sorpresa Pequeña", price: 25.0, image: "https://via.placeholder.com/300x200?text=Sorpresa+1", short: "Caja con 6 dulces sorpresa." },
-    { id: 2, category: "Sorpresas", name: "Sorpresa Fiesta", price: 45.0, image: "https://via.placeholder.com/300x200?text=Sorpresa+2", short: "Sorpresa temática para fiestas." },
-    { id: 3, category: "Invitaciones", name: "Invitación Unicornio", price: 2.5, image: "https://via.placeholder.com/300x200?text=Invitacion+1", short: "Invitación impresa con sobre." },
-    { id: 4, category: "Invitaciones", name: "Invitación Niño", price: 2.0, image: "https://via.placeholder.com/300x200?text=Invitacion+2", short: "Invitación colorida para niños." },
-    { id: 5, category: "Decoración", name: "Guirnalda de papel", price: 12.0, image: "https://via.placeholder.com/300x200?text=Decoracion+1", short: "Guirnalda personalizada (2m)." },
-    { id: 6, category: "Decoración", name: "Centro de mesa", price: 18.5, image: "https://via.placeholder.com/300x200?text=Decoracion+2", short: "Centro temático para mesas." },
-    { id: 7, category: "Dulces", name: "Bolsa de Gomitas", price: 5.0, image: "https://via.placeholder.com/300x200?text=Dulce+1", short: "250 g de gomitas surtidas." },
-    { id: 8, category: "Dulces", name: "Chocolates Mini", price: 8.0, image: "https://via.placeholder.com/300x200?text=Dulce+2", short: "20 mini chocolates envueltos." },
-    { id: 9, category: "Juguetes", name: "Pistola de burbujas", price: 9.5, image: "https://via.placeholder.com/300x200?text=Juguete+1", short: "Divertida pistola con líquido incluído." },
-    { id: 10, category: "Juguetes", name: "Muñeco sorpresa", price: 14.0, image: "https://via.placeholder.com/300x200?text=Juguete+2", short: "Muñeco coleccionable pequeño." },
-    { id: 11, category: "Dulces", name: "Paleta Gigante", price: 7.0, image: "https://via.placeholder.com/300x200?text=Dulce+3", short: "Paleta con caramelo de sabores." },
-    { id: 12, category: "Decoración", name: "Globos Metalizados", price: 10.0, image: "https://via.placeholder.com/300x200?text=Decoracion+3", short: "Pack 10 globos metalizados." },
+    { id: 1, category: "Sorpresas", name: "Caja Sorpresa Pequeña", price: 25.0, image: "./src/caja-sorpresa-pequena.jpg", short: "Caja con 6 dulces sorpresa." },
+    { id: 2, category: "Sorpresas", name: "Sorpresa Fiesta", price: 45.0, image: "./src/sorpresa-fiesta.jpg", short: "Sorpresa temática para fiestas." },
+    { id: 3, category: "Invitaciones", name: "Invitación Unicornio", price: 2.5, image: "./src/invitacion-unicornio.jpg", short: "Invitación impresa con sobre." },
+    { id: 4, category: "Invitaciones", name: "Invitación Niño", price: 2.0, image: "./src/invitacion-nino.jpg", short: "Invitación colorida para niños." },
+    { id: 5, category: "Decoración", name: "Guirnalda de papel", price: 12.0, image: "./src/guirnalda-de-papel.jpg", short: "Guirnalda personalizada (2m)." },
   ];
 
-  const categories = ["Todos", "Sorpresas", "Invitaciones", "Decoración", "Dulces", "Juguetes"];
-
-  const [products] = useState(initialProducts);
+  const [products, setProducts] = useState(initialProducts);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("Todos");
   const [minPrice, setMinPrice] = useState(0);
-  const [maxPrice, setMaxPrice] = useState(1000);
-  const [visibleCount, setVisibleCount] = useState(8);
+  const [maxPrice, setMaxPrice] = useState(10000);
+  const [visibleCount, setVisibleCount] = useState(12);
 
   const [cart, setCart] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
 
+  // Intentamos cargar products.json (opcional)
+  useEffect(() => {
+    fetch('./products.json')
+      .then(res => {
+        if (!res.ok) throw new Error('no products.json');
+        return res.json();
+      })
+      .then(data => {
+        const mapped = (Array.isArray(data) ? data : []).map((p, i) => normalizeProduct(p, i + 1));
+        if (mapped.length) setProducts(mapped);
+      })
+      .catch(() => {
+        // No existe products.json -> quedamos con initialProducts
+      });
+  }, []);
+
+  // Normaliza/garantiza campos de producto y resuelve ruta de imagen por defecto
+  function normalizeProduct(raw, idFallback) {
+    const name = raw.name ?? raw.Nombre ?? raw.nombre ?? '';
+    const price = parsePrice(raw.price ?? raw.Precio ?? raw.precio ?? raw.Price);
+    const description = raw.description ?? raw.Descripcion ?? raw.descripcion ?? raw.Descripción ?? raw.short ?? '';
+    const category = raw.category ?? raw.Categoria ?? raw.categoria ?? 'Sin categoría';
+    const rawImage = (raw.image ?? raw.Imagen ?? raw.imagen ?? '').toString().trim();
+
+    // Si la celda image contiene una URL absoluta la usamos tal cual.
+    // Si contiene un nombre de archivo (sin path) o está vacía, construimos ./src/<slug>.ext (preferimos .jpg)
+    let image = rawImage;
+    if (!image) {
+      image = `./src/${slugify(name)}.jpg`;
+    } else if (!/^https?:\/\//i.test(image) && !image.startsWith('./') && !image.startsWith('/')) {
+      // si es un nombre simple como "miimagen.jpg" o "miimagen" -> lo convertimos a ./src/...
+      image = `./src/${image}`;
+      // si no tiene extensión, agregar .jpg por defecto
+      if (!/\.[a-zA-Z0-9]{2,5}$/.test(image)) image += '.jpg';
+    }
+
+    return {
+      id: raw.id ?? idFallback,
+      name,
+      price,
+      short: description,
+      description,
+      category,
+      image,
+    };
+  }
+
+  // Parsear archivo XLSX (cuando el usuario sube)
+  async function handleXlsxFile(file) {
+    try {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data, { type: 'array' });
+      const sheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+      const mapped = rows.map((r, i) => normalizeProduct(r, i + 1));
+      setProducts(mapped);
+      alert(`Se cargaron ${mapped.length} productos desde el archivo.`);
+    } catch (err) {
+      console.error(err);
+      alert('Error leyendo el archivo .xlsx. Asegúrate que sea válido.');
+    }
+  }
+
+  // Manejar input file (creamos un input oculto o usamos uno en la UI)
+  function handleFileInputChange(e) {
+    const file = e.target.files?.[0];
+    if (file) handleXlsxFile(file);
+    e.target.value = '';
+  }
+
+  // Filtrado y paginación
+  const categories = useMemo(() => {
+    const set = new Set(['Todos', ...products.map(p => p.category ?? 'Sin categoría')]);
+    return Array.from(set);
+  }, [products]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return products
-      .filter((p) => (category === "Todos" ? true : p.category === category))
-      .filter((p) => p.price >= Number(minPrice) && p.price <= Number(maxPrice))
-      .filter((p) => p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q));
+      .filter((p) => (category === "Todos" ? true : (p.category ?? '') === category))
+      .filter((p) => (p.price ?? 0) >= Number(minPrice) && (p.price ?? 0) <= Number(maxPrice))
+      .filter((p) => (p.name + ' ' + (p.category ?? '')).toLowerCase().includes(q));
   }, [products, category, query, minPrice, maxPrice]);
 
   const visibleProducts = filtered.slice(0, visibleCount);
 
+  // Carrito (igual que antes)
   function addToCart(product) {
     setCart((prev) => {
       const found = prev.find((x) => x.id === product.id);
@@ -60,8 +150,8 @@ function DulceriaApp() {
     setCart((prev) => prev.filter((p) => p.id !== id));
   }
 
-  const subtotal = cart.reduce((s, p) => s + p.price * p.qty, 0);
-  const taxes = +(subtotal * 0.12).toFixed(2); // ejemplo 12% IVA (ajustable)
+  const subtotal = cart.reduce((s, p) => s + (p.price || 0) * p.qty, 0);
+  const taxes = +(subtotal * 0.12).toFixed(2); // 12% ejemplo
   const total = +(subtotal + taxes).toFixed(2);
 
   function generateWhatsAppMessage() {
@@ -83,6 +173,12 @@ function DulceriaApp() {
     if (!text) return alert("El carrito está vacío.");
     const url = `https://wa.me/?text=${text}`;
     window.open(url, "_blank");
+  }
+
+  // Handler de error de imagen -> pone placeholder
+  function handleImgError(e) {
+    e.target.onerror = null;
+    e.target.src = 'https://via.placeholder.com/300x200?text=Sin+imagen';
   }
 
   return (
@@ -110,6 +206,14 @@ function DulceriaApp() {
           </nav>
 
           <div className="flex items-center gap-3">
+            {/* Input para subir el Excel */}
+            <label className="px-3 py-2 border rounded cursor-pointer bg-white text-sm">
+              Subir Excel
+              <input id="xlsxInput" type="file" accept=".xlsx,.xls" onChange={handleFileInputChange} className="hidden" />
+            </label>
+
+            <a href="./products-template.xlsx" download className="px-3 py-2 border rounded bg-gray-50 text-sm">Plantilla .xlsx</a>
+
             <button onClick={() => setCartOpen(true)} className="relative">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4" />
@@ -118,8 +222,6 @@ function DulceriaApp() {
                 <span className="absolute -right-2 -top-2 bg-pink-600 text-white text-xs rounded-full px-1.5">{cart.length}</span>
               )}
             </button>
-
-            <button className="md:hidden" onClick={() => alert('En móvil: usa el menú desplegable arriba')}>Menú</button>
           </div>
         </div>
       </header>
@@ -147,7 +249,7 @@ function DulceriaApp() {
               <input type="number" min={0} value={minPrice} onChange={(e) => setMinPrice(e.target.value)} className="w-20 border rounded px-2 py-2" placeholder="Min" />
               <input type="number" min={0} value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)} className="w-20 border rounded px-2 py-2" placeholder="Max" />
 
-              <button onClick={() => { setQuery(""); setCategory("Todos"); setMinPrice(0); setMaxPrice(1000); setVisibleCount(8); }} className="ml-2 px-3 py-2 border rounded">Limpiar</button>
+              <button onClick={() => { setQuery(""); setCategory("Todos"); setMinPrice(0); setMaxPrice(10000); setVisibleCount(12); }} className="ml-2 px-3 py-2 border rounded">Limpiar</button>
             </div>
           </div>
         </section>
@@ -161,12 +263,17 @@ function DulceriaApp() {
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {visibleProducts.map((p) => (
                 <article key={p.id} className="bg-white rounded shadow-sm overflow-hidden flex flex-col">
-                  <img src={p.image} alt={p.name} className="w-full h-40 object-cover" />
+                  <img
+                    src={p.image || `./src/${slugify(p.name)}.jpg`}
+                    alt={p.name}
+                    onError={handleImgError}
+                    className="w-full h-40 object-cover"
+                  />
                   <div className="p-3 flex-1 flex flex-col">
                     <h3 className="font-semibold">{p.name}</h3>
-                    <p className="text-sm text-gray-500 flex-1">{p.short}</p>
+                    <p className="text-sm text-gray-500 flex-1">{p.short || p.description}</p>
                     <div className="mt-3 flex items-center justify-between">
-                      <div className="text-lg font-bold">${p.price.toFixed(2)}</div>
+                      <div className="text-lg font-bold">${(p.price || 0).toFixed(2)}</div>
                       <button onClick={() => addToCart(p)} className="px-3 py-1 bg-pink-500 text-white rounded">Agregar al carrito</button>
                     </div>
                   </div>
@@ -177,7 +284,7 @@ function DulceriaApp() {
 
           {visibleCount < filtered.length && (
             <div className="mt-6 text-center">
-              <button onClick={() => setVisibleCount((v) => v + 8)} className="px-4 py-2 border rounded">Cargar más</button>
+              <button onClick={() => setVisibleCount((v) => v + 12)} className="px-4 py-2 border rounded">Cargar más</button>
             </div>
           )}
         </section>
@@ -198,10 +305,10 @@ function DulceriaApp() {
           ) : (
             cart.map((p) => (
               <div key={p.id} className="flex items-center gap-3">
-                <img src={p.image} alt={p.name} className="w-16 h-12 object-cover rounded" />
+                <img src={p.image || `./src/${slugify(p.name)}.jpg`} alt={p.name} onError={handleImgError} className="w-16 h-12 object-cover rounded" />
                 <div className="flex-1">
                   <div className="font-semibold">{p.name}</div>
-                  <div className="text-sm text-gray-500">${p.price.toFixed(2)}</div>
+                  <div className="text-sm text-gray-500">${(p.price || 0).toFixed(2)}</div>
                 </div>
                 <div className="flex items-center gap-2">
                   <input type="number" value={p.qty} min={1} onChange={(e) => updateQty(p.id, e.target.value)} className="w-16 border rounded px-2 py-1" />
