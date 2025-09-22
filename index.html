@@ -4,47 +4,37 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Dulcería La Fiesta</title>
-    <meta name="description" content="Catálogo de Dulcería La Fiesta — carga productos desde Excel y gestiona carrito." />
+    <meta name="description" content="Catálogo de Dulcería La Fiesta — carga productos desde products.xlsx en el repo." />
 
-    <!-- Tailwind CDN (ideal para prototipo / demo) -->
+    <!-- Tailwind CDN (rápido para prototipo) -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- React + ReactDOM UMD (desarrollo) -->
+    <!-- React + ReactDOM UMD -->
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
 
-    <!-- Babel standalone para transpilar JSX en el navegador (NO recomendado en producción) -->
+    <!-- Babel standalone (transpila JSX en el navegador) -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <!-- SheetJS (XLSX) para leer archivos .xlsx en el navegador -->
+    <!-- SheetJS (XLSX) para leer products.xlsx desde la raíz del repo -->
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 
     <style>
-      /* Un pequeño ajuste para evitar que el body se mueva al abrir el carrito en móviles */
       body { -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; }
     </style>
   </head>
 
   <body class="antialiased bg-gray-50">
     <noscript class="p-4 text-center text-red-600">
-      Esta app requiere JavaScript para funcionar. Por favor, habilita JavaScript en tu navegador.
+      Esta app requiere JavaScript. Habilita JavaScript para ver el catálogo.
     </noscript>
 
     <div id="root"></div>
 
-    <!-- Tu componente React (dulceria.jsx) -->
-    <!-- Asegúrate de que dulceria.jsx está en la misma carpeta que este index.html -->
+    <!-- Componente principal -->
     <script type="text/babel" src="./dulceria.jsx"></script>
 
-    <!-- Script que monta el componente en #root -->
+    <!-- Montaje -->
     <script type="text/babel" src="./render.js"></script>
-
-    <!-- Opcional: un pequeño pie indicando la ruta esperada para las imágenes -->
-    <!--
-      Nota: La app buscará por defecto las imágenes en ./src/<slug-del-nombre>.jpg
-      - Coloca tus imágenes en la carpeta `src/` con nombres tipo: caja-sorpresa-pequena.jpg
-      - Si prefieres otras extensiones, puedes escribir en la columna "image" del Excel la ruta exacta (ej: "./src/miimagen.png")
-      - También puedes incluir ./products.json en la raíz con un array de productos si deseas precargar el catálogo.
-    -->
   </body>
 </html>
