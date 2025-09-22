@@ -1,15 +1,13 @@
 /* dulceria.jsx
-   Versión preparada para ejecutarse con Babel standalone en el navegador.
+   Versión sin botón de subida: carga automáticamente ./products.xlsx (si existe) o ./products.json.
    Usa React global (React, ReactDOM) y Tailwind desde CDN.
-   - Carga productos desde products.json (si existe) o desde un .xlsx que suba el usuario.
-   - Si no hay imagen para un producto intenta ./src/<slug-del-nombre>.jpg (o .png/.jpeg si prefieres renombrar).
 */
 
 const { useState, useMemo, useEffect } = React;
 
 /** Helpers **/
 function slugify(text) {
-  return String(text)
+  return String(text || '')
     .normalize('NFKD')
     .replace(/[\u0300-\u036f]/g, '') // quitar acentos
     .toLowerCase()
@@ -24,18 +22,38 @@ function parsePrice(v) {
   return Number.isFinite(n) ? n : 0;
 }
 
+/** Normaliza/garantiza campos de producto y resuelve ruta de imagen por defecto */
+function normalizeProduct(raw, idFallback) {
+  const name = raw.name ?? raw.Nombre ?? raw.nombre ?? '';
+  const price = parsePrice(raw.price ?? raw.Precio ?? raw.precio ?? raw.Price ?? raw.PRICE);
+  const description = raw.description ?? raw.Descripcion ?? raw.descripcion ?? raw.Descripción ?? raw.short ?? '';
+  const category = raw.category ?? raw.Categoria ?? raw.categoria ?? 'Sin categoría';
+  const rawImage = (raw.image ?? raw.Imagen ?? raw.imagen ?? raw.Image ?? '').toString().trim();
+
+  let image = rawImage;
+  if (!image) {
+    image = `./src/${slugify(name)}.jpg`;
+  } else if (!/^https?:\/\//i.test(image) && !image.startsWith('./') && !image.startsWith('/')) {
+    // si es un nombre simple como "miimagen.jpg" o "miimagen" -> lo convertimos a ./src/...
+    image = `./src/${image}`;
+    if (!/\.[a-zA-Z0-9]{2,5}$/.test(image)) image += '.jpg';
+  }
+
+  return {
+    id: raw.id ?? idFallback,
+    name,
+    price,
+    short: description,
+    description,
+    category,
+    image,
+  };
+}
+
 /** Componente principal **/
 function DulceriaApp() {
-  // Productos de ejemplo (fallback)
-  const initialProducts = [
-    { id: 1, category: "Sorpresas", name: "Caja Sorpresa Pequeña", price: 25.0, image: "./src/caja-sorpresa-pequena.jpg", short: "Caja con 6 dulces sorpresa." },
-    { id: 2, category: "Sorpresas", name: "Sorpresa Fiesta", price: 45.0, image: "./src/sorpresa-fiesta.jpg", short: "Sorpresa temática para fiestas." },
-    { id: 3, category: "Invitaciones", name: "Invitación Unicornio", price: 2.5, image: "./src/invitacion-unicornio.jpg", short: "Invitación impresa con sobre." },
-    { id: 4, category: "Invitaciones", name: "Invitación Niño", price: 2.0, image: "./src/invitacion-nino.jpg", short: "Invitación colorida para niños." },
-    { id: 5, category: "Decoración", name: "Guirnalda de papel", price: 12.0, image: "./src/guirnalda-de-papel.jpg", short: "Guirnalda personalizada (2m)." },
-  ];
-
-  const [products, setProducts] = useState(initialProducts);
+  // START: no sample products (quedamos vacíos hasta que se cargue el Excel/JSON)
+  const [products, setProducts] = useState([]);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("Todos");
   const [minPrice, setMinPrice] = useState(0);
@@ -45,84 +63,58 @@ function DulceriaApp() {
   const [cart, setCart] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
 
-  // Intentamos cargar products.json (opcional)
+  // Al iniciar intentamos cargar ./products.xlsx primero, si no existe intentamos ./products.json
   useEffect(() => {
-    fetch('./products.json')
-      .then(res => {
-        if (!res.ok) throw new Error('no products.json');
-        return res.json();
-      })
-      .then(data => {
-        const mapped = (Array.isArray(data) ? data : []).map((p, i) => normalizeProduct(p, i + 1));
-        if (mapped.length) setProducts(mapped);
-      })
-      .catch(() => {
-        // No existe products.json -> quedamos con initialProducts
-      });
+    let mounted = true;
+
+    async function loadFromXlsx() {
+      try {
+        const res = await fetch('./products.xlsx');
+        if (!res.ok) throw new Error('no xlsx');
+        const data = await res.arrayBuffer();
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+        const mapped = rows.map((r, i) => normalizeProduct(r, i + 1));
+        if (mounted) setProducts(mapped);
+        return true;
+      } catch (err) {
+        return false;
+      }
+    }
+
+    async function loadFromJson() {
+      try {
+        const res = await fetch('./products.json');
+        if (!res.ok) throw new Error('no json');
+        const data = await res.json();
+        if (!Array.isArray(data)) return false;
+        const mapped = data.map((p, i) => normalizeProduct(p, p.id ?? i + 1));
+        if (mounted) setProducts(mapped);
+        return true;
+      } catch (err) {
+        return false;
+      }
+    }
+
+    (async () => {
+      const xlsxLoaded = await loadFromXlsx();
+      if (!xlsxLoaded) {
+        await loadFromJson();
+      }
+    })();
+
+    return () => { mounted = false; };
   }, []);
 
-  // Normaliza/garantiza campos de producto y resuelve ruta de imagen por defecto
-  function normalizeProduct(raw, idFallback) {
-    const name = raw.name ?? raw.Nombre ?? raw.nombre ?? '';
-    const price = parsePrice(raw.price ?? raw.Precio ?? raw.precio ?? raw.Price);
-    const description = raw.description ?? raw.Descripcion ?? raw.descripcion ?? raw.Descripción ?? raw.short ?? '';
-    const category = raw.category ?? raw.Categoria ?? raw.categoria ?? 'Sin categoría';
-    const rawImage = (raw.image ?? raw.Imagen ?? raw.imagen ?? '').toString().trim();
-
-    // Si la celda image contiene una URL absoluta la usamos tal cual.
-    // Si contiene un nombre de archivo (sin path) o está vacía, construimos ./src/<slug>.ext (preferimos .jpg)
-    let image = rawImage;
-    if (!image) {
-      image = `./src/${slugify(name)}.jpg`;
-    } else if (!/^https?:\/\//i.test(image) && !image.startsWith('./') && !image.startsWith('/')) {
-      // si es un nombre simple como "miimagen.jpg" o "miimagen" -> lo convertimos a ./src/...
-      image = `./src/${image}`;
-      // si no tiene extensión, agregar .jpg por defecto
-      if (!/\.[a-zA-Z0-9]{2,5}$/.test(image)) image += '.jpg';
-    }
-
-    return {
-      id: raw.id ?? idFallback,
-      name,
-      price,
-      short: description,
-      description,
-      category,
-      image,
-    };
-  }
-
-  // Parsear archivo XLSX (cuando el usuario sube)
-  async function handleXlsxFile(file) {
-    try {
-      const data = await file.arrayBuffer();
-      const workbook = XLSX.read(data, { type: 'array' });
-      const sheetName = workbook.SheetNames[0];
-      const sheet = workbook.Sheets[sheetName];
-      const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
-
-      const mapped = rows.map((r, i) => normalizeProduct(r, i + 1));
-      setProducts(mapped);
-      alert(`Se cargaron ${mapped.length} productos desde el archivo.`);
-    } catch (err) {
-      console.error(err);
-      alert('Error leyendo el archivo .xlsx. Asegúrate que sea válido.');
-    }
-  }
-
-  // Manejar input file (creamos un input oculto o usamos uno en la UI)
-  function handleFileInputChange(e) {
-    const file = e.target.files?.[0];
-    if (file) handleXlsxFile(file);
-    e.target.value = '';
-  }
-
-  // Filtrado y paginación
+  // Categorías calculadas a partir de productos (si no hay productos -> solo 'Todos')
   const categories = useMemo(() => {
     const set = new Set(['Todos', ...products.map(p => p.category ?? 'Sin categoría')]);
     return Array.from(set);
   }, [products]);
 
+  // Filtrado
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return products
@@ -133,7 +125,7 @@ function DulceriaApp() {
 
   const visibleProducts = filtered.slice(0, visibleCount);
 
-  // Carrito (igual que antes)
+  // Carrito
   function addToCart(product) {
     setCart((prev) => {
       const found = prev.find((x) => x.id === product.id);
@@ -151,7 +143,7 @@ function DulceriaApp() {
   }
 
   const subtotal = cart.reduce((s, p) => s + (p.price || 0) * p.qty, 0);
-  const taxes = +(subtotal * 0.12).toFixed(2); // 12% ejemplo
+  const taxes = +(subtotal * 0.12).toFixed(2);
   const total = +(subtotal + taxes).toFixed(2);
 
   function generateWhatsAppMessage() {
@@ -206,14 +198,6 @@ function DulceriaApp() {
           </nav>
 
           <div className="flex items-center gap-3">
-            {/* Input para subir el Excel */}
-            <label className="px-3 py-2 border rounded cursor-pointer bg-white text-sm">
-              Subir Excel
-              <input id="xlsxInput" type="file" accept=".xlsx,.xls" onChange={handleFileInputChange} className="hidden" />
-            </label>
-
-            <a href="./products-template.xlsx" download className="px-3 py-2 border rounded bg-gray-50 text-sm">Plantilla .xlsx</a>
-
             <button onClick={() => setCartOpen(true)} className="relative">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4" />
@@ -222,6 +206,7 @@ function DulceriaApp() {
                 <span className="absolute -right-2 -top-2 bg-pink-600 text-white text-xs rounded-full px-1.5">{cart.length}</span>
               )}
             </button>
+            {/* Note: removed upload / plantilla buttons as requested */}
           </div>
         </div>
       </header>
