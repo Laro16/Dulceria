@@ -4,3 +4,5 @@ if (rootEl) {
   const root = ReactDOM.createRoot(rootEl);
   root.render(React.createElement(window.DulceriaApp));
 }
+
+
