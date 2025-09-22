@@ -6,6 +6,3 @@ if (rootEl && window.ReactDOM && window.DulceriaApp) {
 } else {
   console.error('Render error: falta ReactDOM o DulceriaApp');
 }
-
-
-
