@@ -1,0 +1,5 @@
+[
+  {"id":1,"name":"Chocolatina","price":5,"category":"Dulces","image":"./src/chocolatina.jpg"},
+  {"id":2,"name":"Caramelo","price":2,"category":"Dulces","image":"./src/caramelo.jpg"},
+  {"id":3,"name":"Galleta","price":3,"category":"Galletas","image":"./src/galleta.jpg"}
+]
