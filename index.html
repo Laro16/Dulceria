@@ -3,23 +3,28 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-    <title>Dulcería La Fiesta - Debug</title>
-    <meta name="description" content="Debug index para Dulcería" />
+    <title>Dulcería La Fiesta</title>
+    <meta name="description" content="Catálogo de Dulcería La Fiesta — carga productos desde products.xlsx en el repo." />
 
-    <!-- Tailwind -->
+    <!-- Tailwind CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- React + ReactDOM (UMD, dev) -->
+    <!-- React + ReactDOM UMD -->
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
 
-    <!-- Babel standalone -->
+    <!-- Babel standalone (solo para desarrollo/prototipo) -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <!-- SheetJS (XLSX) -->
-    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+    <!-- SheetJS (XLSX) para leer products.xlsx -->
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 
-    <style>body{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;} </style>
+    <style>
+      body { -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; }
+      @supports(padding: max(0px)) {
+        body { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+      }
+    </style>
   </head>
 
   <body class="antialiased bg-gray-50">
@@ -27,20 +32,10 @@
 
     <div id="root"></div>
 
-    <!-- small debug logger: mostrará si las librerías cargaron -->
-    <script>
-      console.log('DEBUG libs:',
-        'React=', typeof React,
-        'ReactDOM=', typeof ReactDOM,
-        'Babel=', typeof Babel,
-        'XLSX=', typeof XLSX
-      );
-    </script>
-
-    <!-- tu componente (JSX) -->
+    <!-- Componente principal -->
     <script type="text/babel" src="./dulceria.jsx"></script>
 
-    <!-- monta -->
+    <!-- Montaje -->
     <script type="text/babel" src="./render.js"></script>
   </body>
 </html>
