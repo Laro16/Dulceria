@@ -1,8 +1,7 @@
 /* dulceria.jsx
    Actualizado:
-   - Se eliminaron los filtros de precio (min/max) y el botón Limpiar.
-   - Se eliminó el botón de "Checkout tradicional".
-   - Header con estructura de 3 columnas en móvil.
+   - Se ajustó la cuadrícula de productos para que las tarjetas sean más estrechas.
+   - Se revirtió el cambio de tamaño de la imagen del producto a su valor original.
 */
 
 const { useState, useMemo, useEffect } = React;
@@ -290,10 +289,13 @@ function DulceriaApp() {
           {visibleProducts.length === 0 ? (
             <div className="bg-white rounded-lg p-6 text-center shadow">No se encontraron productos.</div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            /* INICIO DE LA CORRECCIÓN 2 */
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
               {visibleProducts.map(p => (
                 <article key={p.id} className="bg-white rounded shadow-sm overflow-hidden flex flex-col">
-                  <ImageWithModal src={p.image || `./src/${slugify(p.name)}.jpg`} alt={p.name} className="w-[65%] max-w-[200px] h-36 mx-auto mt-3" imgClass="object-contain" />
+                  {/* INICIO DE LA CORRECCIÓN 1 (REVERSIÓN) */}
+                  <ImageWithModal src={p.image || `./src/${slugify(p.name)}.jpg`} alt={p.name} className="w-[72%] max-w-[220px] h-36 mx-auto mt-3" imgClass="object-contain" />
+                  {/* FIN DE LA CORRECCIÓN 1 (REVERSIÓN) */}
                   <div className="p-3 flex-1 flex flex-col">
                     <h3 className="font-semibold text-sm sm:text-base truncate">{p.name}</h3>
                     <p className="text-xs sm:text-sm text-gray-500 flex-1">{p.short || p.description}</p>
@@ -305,6 +307,7 @@ function DulceriaApp() {
                 </article>
               ))}
             </div>
+            /* FIN DE LA CORRECCIÓN 2 */
           )}
           {visibleCount < filtered.length && (
             <div className="mt-6 text-center">
