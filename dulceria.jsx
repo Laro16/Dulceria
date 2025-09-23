@@ -1,5 +1,6 @@
 /* dulceria.jsx
    Actualizado:
+   - Se corrigió un error de sintaxis que causaba la página en blanco.
    - Se corrigió el layout de los controles del producto para que el botón "Agregar" ocupe el espacio restante y nunca se desborde.
 */
 
@@ -42,7 +43,9 @@ const moneyFmt = new Intl.NumberFormat('es-GT', { style: 'currency', currency: '
 
 /* Image + modal */
 function ImageWithModal({ src, alt, className = 'w-[72%] max-w-[220px] h-36 mx-auto', imgClass = 'object-contain' }) {
-  const [open, setOpen] useState(false);
+  // INICIO DE LA CORRECCIÓN
+  const [open, setOpen] = useState(false);
+  // FIN DE LA CORRECCIÓN
 
   useEffect(() => {
     function onKey(e) { if (e.key === 'Escape') setOpen(false); }
@@ -327,7 +330,6 @@ function DulceriaApp() {
                     <div className="mt-3 space-y-2">
                       <div className="text-base sm:text-lg font-bold">{moneyFmt.format(p.price || 0)}</div>
                       
-                      {/* INICIO DE LA CORRECCIÓN */}
                       <div className="flex items-stretch gap-2">
                         <div className="flex items-center border rounded flex-shrink-0">
                            <button onClick={() => decrementQuantity(p.id)} className="px-2 py-1 text-lg leading-none border-r">-</button>
@@ -345,7 +347,6 @@ function DulceriaApp() {
                           Agregar
                         </button>
                       </div>
-                      {/* FIN DE LA CORRECCIÓN */}
 
                     </div>
                   </div>
