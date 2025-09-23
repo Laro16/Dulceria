@@ -1,10 +1,24 @@
 /* dulceria.jsx
    Actualizado:
-   - Se ajustó la cuadrícula de productos para que las tarjetas sean más estrechas.
-   - Se revirtió el cambio de tamaño de la imagen del producto a su valor original.
+   1. El logo/título ahora recarga la página al hacer clic.
+   2. Se añadió un campo de cantidad junto al botón "Agregar".
+   3. Se agregó un efecto de dulces (confeti) en los clics de botones.
 */
 
 const { useState, useMemo, useEffect } = React;
+
+// 3. Helper para el efecto de dulces
+function triggerConfetti() {
+  if (window.confetti) {
+    window.confetti({
+      particleCount: 80,
+      spread: 60,
+      origin: { y: 0.7 },
+      shapes: ['circle', 'square'],
+      colors: ['#f472b6', '#ec4899', '#db2777', '#ffffff', '#fed7aa']
+    });
+  }
+}
 
 /* Helpers */
 function slugify(text) {
@@ -112,6 +126,9 @@ function DulceriaApp() {
   const [cart, setCart] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
 
+  // 2. Estado para las cantidades de los productos
+  const [quantities, setQuantities] = useState({});
+
   // trackear si logo y carrito existieron (para fallback condicional)
   const [logoVisible, setLogoVisible] = useState(true);
   const [cartImgVisible, setCartImgVisible] = useState(true);
@@ -173,11 +190,20 @@ function DulceriaApp() {
 
   const visibleProducts = filtered.slice(0, visibleCount);
 
-  function addToCart(product) {
+  // 2. Función para manejar el cambio de cantidad
+  function handleQuantityChange(productId, qty) {
+    const newQty = Math.max(1, Number(qty) || 1);
+    setQuantities(prev => ({ ...prev, [productId]: newQty }));
+  }
+
+  // 2. Modificada para aceptar cantidad
+  function addToCart(product, qtyToAdd) {
     setCart(prev => {
       const found = prev.find(x => x.id === product.id);
-      if (found) return prev.map(x => x.id === product.id ? { ...x, qty: x.qty + 1 } : x);
-      return [...prev, { ...product, qty: 1 }];
+      if (found) {
+        return prev.map(x => x.id === product.id ? { ...x, qty: x.qty + qtyToAdd } : x);
+      }
+      return [...prev, { ...product, qty: qtyToAdd }];
     });
   }
   function updateQty(id, qty) { setCart(prev => prev.map(p => p.id === id ? { ...p, qty: Math.max(1, Number(qty) || 1) } : p)); }
@@ -209,8 +235,8 @@ function DulceriaApp() {
       <header className="bg-white shadow sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-3 sm:px-4 py-3 flex items-center justify-between gap-2">
           
-          {/* Parte Izquierda: Logo y Título */}
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-shrink-0">
+          {/* 1. Parte Izquierda: Logo y Título (con enlace para recargar) */}
+          <a href="./" className="flex items-center gap-2 sm:gap-3 min-w-0 flex-shrink-0 no-underline text-current">
             <div className="flex-shrink-0">
               <img
                 src="./src/logo.png"
@@ -228,13 +254,13 @@ function DulceriaApp() {
               <div className="text-sm sm:text-lg font-semibold truncate">La Fiesta</div>
               <div className="text-xs text-gray-500 truncate">Dulces y sorpresas</div>
             </div>
-          </div>
+          </a>
 
           {/* Parte Central: Navegación para Móvil (deslizable) */}
           <nav className="flex-grow min-w-0 md:hidden">
             <div className="flex items-center overflow-x-auto whitespace-nowrap scrollbar-hide">
               {categories.map(c => (
-                <button key={c} className={`px-3 py-2 rounded text-sm flex-shrink-0 ${category === c ? 'bg-pink-100 text-pink-700' : 'hover:bg-gray-100'}`} onClick={() => setCategory(c)}>
+                <button key={c} className={`px-3 py-2 rounded text-sm flex-shrink-0 ${category === c ? 'bg-pink-100 text-pink-700' : 'hover:bg-gray-100'}`} onClick={() => { setCategory(c); triggerConfetti(); }}>
                   {c}
                 </button>
               ))}
@@ -245,7 +271,7 @@ function DulceriaApp() {
           <div className="flex items-center gap-3 flex-shrink-0">
             <nav className="hidden md:flex gap-3 items-center mr-2">
               {categories.map(c => (
-                <button key={c} className={`px-3 py-2 rounded ${category === c ? 'bg-pink-100 text-pink-700' : 'hover:bg-gray-100'}`} onClick={() => setCategory(c)}>
+                <button key={c} className={`px-3 py-2 rounded ${category === c ? 'bg-pink-100 text-pink-700' : 'hover:bg-gray-100'}`} onClick={() => { setCategory(c); triggerConfetti(); }}>
                   {c}
                 </button>
               ))}
@@ -289,29 +315,38 @@ function DulceriaApp() {
           {visibleProducts.length === 0 ? (
             <div className="bg-white rounded-lg p-6 text-center shadow">No se encontraron productos.</div>
           ) : (
-            /* INICIO DE LA CORRECCIÓN 2 */
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
               {visibleProducts.map(p => (
                 <article key={p.id} className="bg-white rounded shadow-sm overflow-hidden flex flex-col">
-                  {/* INICIO DE LA CORRECCIÓN 1 (REVERSIÓN) */}
                   <ImageWithModal src={p.image || `./src/${slugify(p.name)}.jpg`} alt={p.name} className="w-[72%] max-w-[220px] h-36 mx-auto mt-3" imgClass="object-contain" />
-                  {/* FIN DE LA CORRECCIÓN 1 (REVERSIÓN) */}
                   <div className="p-3 flex-1 flex flex-col">
                     <h3 className="font-semibold text-sm sm:text-base truncate">{p.name}</h3>
                     <p className="text-xs sm:text-sm text-gray-500 flex-1">{p.short || p.description}</p>
                     <div className="mt-3 flex items-center justify-between">
                       <div className="text-base sm:text-lg font-bold">{moneyFmt.format(p.price || 0)}</div>
-                      <button onClick={() => addToCart(p)} className="px-3 py-2 bg-pink-500 text-white rounded text-sm sm:text-sm">Agregar</button>
+                      {/* 2. Grupo de cantidad y botón Agregar */}
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          aria-label={`Cantidad para ${p.name}`}
+                          value={quantities[p.id] || 1}
+                          min={1}
+                          onChange={(e) => handleQuantityChange(p.id, e.target.value)}
+                          className="w-16 border rounded px-2 py-1 text-center text-sm"
+                        />
+                        <button onClick={() => { addToCart(p, quantities[p.id] || 1); triggerConfetti(); }} className="px-3 py-2 bg-pink-500 text-white rounded text-sm sm:text-sm flex-shrink-0">
+                          Agregar
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </article>
               ))}
             </div>
-            /* FIN DE LA CORRECCIÓN 2 */
           )}
           {visibleCount < filtered.length && (
             <div className="mt-6 text-center">
-              <button onClick={() => setVisibleCount(v => v + 12)} className="px-4 py-2 border rounded">Cargar más</button>
+              <button onClick={() => { setVisibleCount(v => v + 12); triggerConfetti(); }} className="px-4 py-2 border rounded">Cargar más</button>
             </div>
           )}
         </section>
@@ -349,7 +384,7 @@ function DulceriaApp() {
           <div className="flex justify-between mb-2"><span>Subtotal</span><span>{moneyFmt.format(subtotal)}</span></div>
           <div className="flex justify-between mb-2"><span>Impuestos</span><span>{moneyFmt.format(taxes)}</span></div>
           <div className="flex justify-between font-bold text-lg mb-4"><span>Total</span><span>{moneyFmt.format(total)}</span></div>
-          <button onClick={openWhatsApp} className="w-full px-4 py-3 bg-green-600 text-white rounded mb-2 text-sm">Ordenar por WhatsApp</button>
+          <button onClick={() => { openWhatsApp(); triggerConfetti(); }} className="w-full px-4 py-3 bg-green-600 text-white rounded mb-2 text-sm">Ordenar por WhatsApp</button>
         </div>
       </div>
 
