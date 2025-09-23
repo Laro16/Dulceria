@@ -1,8 +1,8 @@
 /* dulceria.jsx
    Actualizado:
-   - Header con estructura de 3 columnas en móvil para evitar superposición.
-   - Navegación deslizable solo para móvil.
-   - Navegación estática para desktop.
+   - Se eliminaron los filtros de precio (min/max) y el botón Limpiar.
+   - Se eliminó el botón de "Checkout tradicional".
+   - Header con estructura de 3 columnas en móvil.
 */
 
 const { useState, useMemo, useEffect } = React;
@@ -282,9 +282,6 @@ function DulceriaApp() {
               <select value={category} onChange={e => setCategory(e.target.value)} className="border rounded px-3 py-2 text-sm">
                 {categories.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
-              <input type="number" min={0} value={minPrice} onChange={e => setMinPrice(e.target.value)} className="w-20 border rounded px-2 py-2 text-sm" placeholder="Min" />
-              <input type="number" min={0} value={maxPrice} onChange={e => setMaxPrice(e.target.value)} className="w-20 border rounded px-2 py-2 text-sm" placeholder="Max" />
-              <button onClick={() => { setQuery(''); setCategory('Todos'); setMinPrice(0); setMaxPrice(10000); setVisibleCount(12); }} className="ml-1 px-3 py-2 border rounded text-sm">Limpiar</button>
             </div>
           </div>
         </section>
@@ -350,7 +347,6 @@ function DulceriaApp() {
           <div className="flex justify-between mb-2"><span>Impuestos</span><span>{moneyFmt.format(taxes)}</span></div>
           <div className="flex justify-between font-bold text-lg mb-4"><span>Total</span><span>{moneyFmt.format(total)}</span></div>
           <button onClick={openWhatsApp} className="w-full px-4 py-3 bg-green-600 text-white rounded mb-2 text-sm">Ordenar por WhatsApp</button>
-          <button onClick={() => alert('Aquí podrías agregar checkout tradicional')} className="w-full px-4 py-2 border rounded text-sm">Checkout tradicional</button>
         </div>
       </div>
 
