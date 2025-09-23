@@ -1,10 +1,8 @@
 /* dulceria.jsx
    Actualizado:
-   - header fijo (sticky)
-   - logo grande desde ./src/logo.png (fuera de círculo)
-   - carrito usa ./src/carrito.png (muestra svg fallback solo si imagen falla)
-   - quité el texto "Catálogo — imágenes en ./src/"
-   - contenedores de imagen más estrechos y optimizados para mobile
+   - Header con estructura de 3 columnas en móvil para evitar superposición.
+   - Navegación deslizable solo para móvil.
+   - Navegación estática para desktop.
 */
 
 const { useState, useMemo, useEffect } = React;
@@ -210,10 +208,10 @@ function DulceriaApp() {
     <div className="min-h-screen bg-gray-50 text-gray-800">
       {/* Header fijo */}
       <header className="bg-white shadow sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-3 sm:px-4 py-3 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-3 sm:px-4 py-3 flex items-center justify-between gap-2">
           
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            {/* logo grande (no en círculo) */}
+          {/* Parte Izquierda: Logo y Título */}
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-shrink-0">
             <div className="flex-shrink-0">
               <img
                 src="./src/logo.png"
@@ -224,34 +222,36 @@ function DulceriaApp() {
                 style={{ display: logoVisible ? 'block' : 'none' }}
               />
             </div>
-
-            {/* fallback: si logo no existe, mostrar texto grande */}
             {!logoVisible && (
               <div className="text-xl font-bold select-none">Dulcería La Fiesta</div>
             )}
-
-            {/* título pequeño (no la línea con ./src) */}
-            <div className="truncate">
+            <div className="truncate hidden sm:block">
               <div className="text-sm sm:text-lg font-semibold truncate">La Fiesta</div>
               <div className="text-xs text-gray-500 truncate">Dulces y sorpresas</div>
             </div>
           </div>
 
-          {/* right: nav (hidden on mobile) + cart */}
-          <div className="flex items-center gap-3">
-            
-            {/* INICIO DE LA CORRECCIÓN: BARRA DESLIZABLE */}
-            <nav className="flex gap-2 md:gap-3 items-center mr-2 overflow-x-auto whitespace-nowrap md:overflow-x-visible">
+          {/* Parte Central: Navegación para Móvil (deslizable) */}
+          <nav className="flex-grow min-w-0 md:hidden">
+            <div className="flex items-center overflow-x-auto whitespace-nowrap scrollbar-hide">
               {categories.map(c => (
-                <button key={c} className={`px-3 py-2 rounded text-sm ${category === c ? 'bg-pink-100 text-pink-700' : 'hover:bg-gray-100'}`} onClick={() => setCategory(c)}>
+                <button key={c} className={`px-3 py-2 rounded text-sm flex-shrink-0 ${category === c ? 'bg-pink-100 text-pink-700' : 'hover:bg-gray-100'}`} onClick={() => setCategory(c)}>
+                  {c}
+                </button>
+              ))}
+            </div>
+          </nav>
+
+          {/* Parte Derecha: Navegación para Desktop y Carrito */}
+          <div className="flex items-center gap-3 flex-shrink-0">
+            <nav className="hidden md:flex gap-3 items-center mr-2">
+              {categories.map(c => (
+                <button key={c} className={`px-3 py-2 rounded ${category === c ? 'bg-pink-100 text-pink-700' : 'hover:bg-gray-100'}`} onClick={() => setCategory(c)}>
                   {c}
                 </button>
               ))}
             </nav>
-            {/* FIN DE LA CORRECCIÓN */}
-
-            {/* carrito: intenta usar ./src/carrito.png; si falla, muestra SVG fallback */}
-            <button onClick={() => setCartOpen(true)} className="relative p-2 rounded-md bg-white hover:bg-gray-50 flex-shrink-0" aria-label="Abrir carrito">
+            <button onClick={() => setCartOpen(true)} className="relative p-2 rounded-md bg-white hover:bg-gray-50" aria-label="Abrir carrito">
               <img
                 src="./src/carrito.png"
                 alt="Carrito"
@@ -271,30 +271,25 @@ function DulceriaApp() {
         </div>
       </header>
 
-      {/* main: añadir padding top para que no quede oculto bajo el header fijo */}
+      {/* Main Content */}
       <main className="max-w-6xl mx-auto px-3 sm:px-4 py-4" style={{ paddingTop: 8 }}>
         <section className="bg-white rounded-lg p-3 sm:p-4 shadow-sm mb-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="col-span-1 md:col-span-2 flex items-center gap-2">
               <input aria-label="Buscar productos" value={query} onChange={e => setQuery(e.target.value)} className="w-full border rounded px-3 py-2 text-sm" placeholder="Buscar por nombre o categoría..." />
             </div>
-
             <div className="flex gap-2 items-center justify-end">
               <select value={category} onChange={e => setCategory(e.target.value)} className="border rounded px-3 py-2 text-sm">
                 {categories.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
-
               <input type="number" min={0} value={minPrice} onChange={e => setMinPrice(e.target.value)} className="w-20 border rounded px-2 py-2 text-sm" placeholder="Min" />
               <input type="number" min={0} value={maxPrice} onChange={e => setMaxPrice(e.target.value)} className="w-20 border rounded px-2 py-2 text-sm" placeholder="Max" />
-
               <button onClick={() => { setQuery(''); setCategory('Todos'); setMinPrice(0); setMaxPrice(10000); setVisibleCount(12); }} className="ml-1 px-3 py-2 border rounded text-sm">Limpiar</button>
             </div>
           </div>
         </section>
-
         <section>
           <h2 className="text-lg font-semibold mb-3">Productos ({filtered.length})</h2>
-
           {visibleProducts.length === 0 ? (
             <div className="bg-white rounded-lg p-6 text-center shadow">No se encontraron productos.</div>
           ) : (
@@ -314,7 +309,6 @@ function DulceriaApp() {
               ))}
             </div>
           )}
-
           {visibleCount < filtered.length && (
             <div className="mt-6 text-center">
               <button onClick={() => setVisibleCount(v => v + 12)} className="px-4 py-2 border rounded">Cargar más</button>
@@ -323,7 +317,7 @@ function DulceriaApp() {
         </section>
       </main>
 
-      {/* Carrito lateral (optimizado móvil) */}
+      {/* Carrito lateral */}
       <div className={`fixed top-0 right-0 h-full w-full md:w-96 bg-white shadow-xl transform ${cartOpen ? 'translate-x-0' : 'translate-x-full'} transition-transform`} style={{ zIndex: 60 }}>
         <div className="p-4 border-b flex items-center justify-between">
           <h3 className="text-lg font-bold">Tu carrito</h3>
@@ -332,7 +326,6 @@ function DulceriaApp() {
             <button onClick={() => setCartOpen(false)} className="px-2 py-1 border rounded">Cerrar</button>
           </div>
         </div>
-
         <div className="p-4 space-y-4 overflow-auto" style={{ maxHeight: 'calc(100% - 220px)' }}>
           {cart.length === 0 ? (
             <div className="text-center text-gray-500">No hay productos en el carrito.</div>
@@ -352,12 +345,10 @@ function DulceriaApp() {
             ))
           )}
         </div>
-
         <div className="p-4 border-t">
           <div className="flex justify-between mb-2"><span>Subtotal</span><span>{moneyFmt.format(subtotal)}</span></div>
           <div className="flex justify-between mb-2"><span>Impuestos</span><span>{moneyFmt.format(taxes)}</span></div>
           <div className="flex justify-between font-bold text-lg mb-4"><span>Total</span><span>{moneyFmt.format(total)}</span></div>
-
           <button onClick={openWhatsApp} className="w-full px-4 py-3 bg-green-600 text-white rounded mb-2 text-sm">Ordenar por WhatsApp</button>
           <button onClick={() => alert('Aquí podrías agregar checkout tradicional')} className="w-full px-4 py-2 border rounded text-sm">Checkout tradicional</button>
         </div>
