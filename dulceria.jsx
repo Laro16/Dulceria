@@ -1,13 +1,12 @@
 /* dulceria.jsx
    Actualizado:
-   1. El logo/título ahora recarga la página al hacer clic.
-   2. Se añadió un campo de cantidad junto al botón "Agregar".
-   3. Se agregó un efecto de dulces (confeti) en los clics de botones.
+   1. Se reestructuró la tarjeta de producto para apilar el precio y los controles, asegurando que el botón "Agregar" sea siempre visible.
+   2. Se reemplazó el input numérico por un selector de cantidad con botones "-" y "+" para una mejor experiencia móvil.
 */
 
 const { useState, useMemo, useEffect } = React;
 
-// 3. Helper para el efecto de dulces
+// Helper para el efecto de dulces
 function triggerConfetti() {
   if (window.confetti) {
     window.confetti({
@@ -126,10 +125,8 @@ function DulceriaApp() {
   const [cart, setCart] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
 
-  // 2. Estado para las cantidades de los productos
   const [quantities, setQuantities] = useState({});
 
-  // trackear si logo y carrito existieron (para fallback condicional)
   const [logoVisible, setLogoVisible] = useState(true);
   const [cartImgVisible, setCartImgVisible] = useState(true);
 
@@ -190,13 +187,21 @@ function DulceriaApp() {
 
   const visibleProducts = filtered.slice(0, visibleCount);
 
-  // 2. Función para manejar el cambio de cantidad
   function handleQuantityChange(productId, qty) {
     const newQty = Math.max(1, Number(qty) || 1);
     setQuantities(prev => ({ ...prev, [productId]: newQty }));
   }
 
-  // 2. Modificada para aceptar cantidad
+  function incrementQuantity(productId) {
+    const currentQty = quantities[productId] || 1;
+    handleQuantityChange(productId, currentQty + 1);
+  }
+
+  function decrementQuantity(productId) {
+    const currentQty = quantities[productId] || 1;
+    handleQuantityChange(productId, currentQty - 1);
+  }
+
   function addToCart(product, qtyToAdd) {
     setCart(prev => {
       const found = prev.find(x => x.id === product.id);
@@ -235,7 +240,6 @@ function DulceriaApp() {
       <header className="bg-white shadow sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-3 sm:px-4 py-3 flex items-center justify-between gap-2">
           
-          {/* 1. Parte Izquierda: Logo y Título (con enlace para recargar) */}
           <a href="./" className="flex items-center gap-2 sm:gap-3 min-w-0 flex-shrink-0 no-underline text-current">
             <div className="flex-shrink-0">
               <img
@@ -256,7 +260,6 @@ function DulceriaApp() {
             </div>
           </a>
 
-          {/* Parte Central: Navegación para Móvil (deslizable) */}
           <nav className="flex-grow min-w-0 md:hidden">
             <div className="flex items-center overflow-x-auto whitespace-nowrap scrollbar-hide">
               {categories.map(c => (
@@ -267,7 +270,6 @@ function DulceriaApp() {
             </div>
           </nav>
 
-          {/* Parte Derecha: Navegación para Desktop y Carrito */}
           <div className="flex items-center gap-3 flex-shrink-0">
             <nav className="hidden md:flex gap-3 items-center mr-2">
               {categories.map(c => (
@@ -322,23 +324,31 @@ function DulceriaApp() {
                   <div className="p-3 flex-1 flex flex-col">
                     <h3 className="font-semibold text-sm sm:text-base truncate">{p.name}</h3>
                     <p className="text-xs sm:text-sm text-gray-500 flex-1">{p.short || p.description}</p>
-                    <div className="mt-3 flex items-center justify-between">
+                    
+                    {/* INICIO DE LA CORRECCIÓN */}
+                    <div className="mt-3 space-y-2">
                       <div className="text-base sm:text-lg font-bold">{moneyFmt.format(p.price || 0)}</div>
-                      {/* 2. Grupo de cantidad y botón Agregar */}
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="number"
-                          aria-label={`Cantidad para ${p.name}`}
-                          value={quantities[p.id] || 1}
-                          min={1}
-                          onChange={(e) => handleQuantityChange(p.id, e.target.value)}
-                          className="w-16 border rounded px-2 py-1 text-center text-sm"
-                        />
+                      <div className="flex items-center justify-between gap-2">
+                        {/* Selector de cantidad con botones - y + */}
+                        <div className="flex items-center border rounded">
+                           <button onClick={() => decrementQuantity(p.id)} className="px-2 py-1 text-lg leading-none border-r">-</button>
+                           <input
+                             type="text"
+                             inputMode="numeric"
+                             aria-label={`Cantidad para ${p.name}`}
+                             value={quantities[p.id] || 1}
+                             onChange={(e) => handleQuantityChange(p.id, e.target.value)}
+                             className="w-10 text-center border-none text-sm"
+                           />
+                           <button onClick={() => incrementQuantity(p.id)} className="px-2 py-1 text-lg leading-none border-l">+</button>
+                        </div>
                         <button onClick={() => { addToCart(p, quantities[p.id] || 1); triggerConfetti(); }} className="px-3 py-2 bg-pink-500 text-white rounded text-sm sm:text-sm flex-shrink-0">
                           Agregar
                         </button>
                       </div>
                     </div>
+                    {/* FIN DE LA CORRECCIÓN */}
+
                   </div>
                 </article>
               ))}
