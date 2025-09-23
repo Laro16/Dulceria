@@ -1,8 +1,8 @@
 /* dulceria.jsx
    Actualizado:
-   1. La imagen en el modal ahora es más grande (ocupa hasta el 90% de la altura de la pantalla).
-   2. Se reemplazó el botón de cierre "X" por un ícono SVG más pequeño y estilizado.
-   3. El modal ahora se cierra al hacer clic en el fondo oscuro (overlay).
+   1. La imagen en el modal es más grande, ocupando casi toda la pantalla.
+   2. Se confirmó que el modal se cierra al hacer clic en el fondo.
+   3. Se rediseñó el selector de cantidad con más estilo y se separó del botón "Agregar".
 */
 
 const { useState, useMemo, useEffect, useRef } = React;
@@ -80,7 +80,6 @@ function ImageWithModal({ src, alt, className = 'w-[72%] max-w-[220px] h-36 mx-a
   useEffect(() => {
     let timeoutId;
     if (open) {
-      // Pequeño delay para permitir que el elemento se monte antes de la transición
       timeoutId = setTimeout(() => setIsShowing(true), 50);
     } else {
       setIsShowing(false);
@@ -109,27 +108,23 @@ function ImageWithModal({ src, alt, className = 'w-[72%] max-w-[220px] h-36 mx-a
       </button>
 
       {open && (
-        // 3. El div exterior (fondo oscuro) ahora cierra el modal al hacer clic
         <div
           role="dialog"
           aria-modal="true"
           className={`fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80 p-4 transition-opacity duration-300 ease-out ${isShowing ? 'opacity-100' : 'opacity-0'}`}
           onClick={() => setOpen(false)}
         >
-          {/* Este div detiene la propagación para que el clic en el contenido no cierre el modal */}
           <div
             className={`transform transition-all duration-300 ease-out ${isShowing ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}`}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="relative bg-black rounded max-w-[95%] max-h-[95%]">
-              {/* 2. Botón de cierre "X" mejorado con un ícono SVG */}
               <button onClick={() => setOpen(false)} aria-label="Cerrar" className="absolute top-2 right-2 z-10 rounded-full bg-black/50 text-white p-1.5 hover:bg-black/75 transition-colors">
                 <svg className="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
-              {/* 1. Imagen del modal más grande */}
-              <img src={src} alt={alt} onError={handleImgError} className="max-w-full max-h-[90vh] object-contain block mx-auto" />
+              <img src={src} alt={alt} onError={handleImgError} className="max-w-[95vw] max-h-[95vh] object-contain block mx-auto" />
             </div>
             <div className="text-center text-sm text-gray-200 mt-3">{alt}</div>
           </div>
@@ -391,24 +386,24 @@ function DulceriaApp() {
                       <div className="mt-3 space-y-2">
                         <div className="text-base sm:text-lg font-bold">{moneyFmt.format(p.price || 0)}</div>
                         
-                        <div className="flex justify-end">
-                          <div className="flex items-stretch">
-                            <div className="flex items-center border border-gray-300 rounded-l-md">
-                               <button onClick={() => decrementQuantity(p.id)} className="px-1.5 text-lg leading-none">-</button>
-                               <input
-                                 type="text"
-                                 inputMode="numeric"
-                                 aria-label={`Cantidad para ${p.name}`}
-                                 value={quantities[p.id] || 1}
-                                 onChange={(e) => handleQuantityChange(p.id, e.target.value)}
-                                 className="w-8 text-center border-none text-sm bg-transparent"
-                               />
-                               <button onClick={() => incrementQuantity(p.id)} className="px-1.5 text-lg leading-none">+</button>
-                            </div>
-                            <button onClick={() => { addToCart(p, quantities[p.id] || 1); triggerConfetti(); }} className="px-2 py-1 bg-pink-500 text-white rounded-r-md text-sm border border-pink-500">
-                              Agregar
-                            </button>
+                        <div className="flex justify-end items-center gap-3 mt-2">
+                          {/* INICIO DE LA CORRECCIÓN: Selector de cantidad con nuevo estilo */}
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => decrementQuantity(p.id)} className="w-6 h-6 rounded-full bg-gray-200 hover:bg-gray-300 text-gray-700 flex items-center justify-center text-lg leading-none transition-colors">-</button>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              aria-label={`Cantidad para ${p.name}`}
+                              value={quantities[p.id] || 1}
+                              onChange={(e) => handleQuantityChange(p.id, e.target.value)}
+                              className="w-8 text-center text-base font-medium bg-transparent"
+                            />
+                            <button onClick={() => incrementQuantity(p.id)} className="w-6 h-6 rounded-full bg-gray-200 hover:bg-gray-300 text-gray-700 flex items-center justify-center text-lg leading-none transition-colors">+</button>
                           </div>
+                          {/* FIN DE LA CORRECCIÓN */}
+                          <button onClick={() => { addToCart(p, quantities[p.id] || 1); triggerConfetti(); }} className="px-3 py-2 bg-pink-500 text-white rounded-md text-sm hover:bg-pink-600 transition-colors">
+                            Agregar
+                          </button>
                         </div>
                       </div>
                     </div>
