@@ -1,11 +1,13 @@
 /* dulceria.jsx
    Actualizado:
-   1. La imagen en el modal es más grande, ocupando casi toda la pantalla.
-   2. Se confirmó que el modal se cierra al hacer clic en el fondo.
-   3. Se rediseñó el selector de cantidad con más estilo y se separó del botón "Agregar".
+   - Se implementó un Portal de React para el modal de la imagen. Esto soluciona 3 problemas:
+     1. El modal ahora siempre aparece por encima de todo el contenido (corrige el z-index).
+     2. La animación de apertura ahora es siempre visible y suave.
+     3. El modal ahora siempre se centra perfectamente en la pantalla.
 */
 
 const { useState, useMemo, useEffect, useRef } = React;
+const { createPortal } = ReactDOM; // Usaremos Portals
 
 // Helper para el efecto de dulces
 function triggerConfetti() {
@@ -56,8 +58,15 @@ function FadeInOnScroll({ children, delay = 0 }) {
         }
       });
     });
-    observer.observe(domRef.current);
-    return () => observer.disconnect();
+    const currentRef = domRef.current;
+    if (currentRef) {
+      observer.observe(currentRef);
+    }
+    return () => {
+      if (currentRef) {
+        observer.unobserve(currentRef);
+      }
+    };
   }, []);
 
   return (
@@ -72,7 +81,7 @@ function FadeInOnScroll({ children, delay = 0 }) {
 }
 
 
-// Componente Image + modal con todas las mejoras
+// Componente Image + modal que ahora usa un Portal
 function ImageWithModal({ src, alt, className = 'w-[72%] max-w-[220px] h-36 mx-auto', imgClass = 'object-contain' }) {
   const [open, setOpen] = useState(false);
   const [isShowing, setIsShowing] = useState(false);
@@ -86,7 +95,7 @@ function ImageWithModal({ src, alt, className = 'w-[72%] max-w-[220px] h-36 mx-a
     }
     return () => clearTimeout(timeoutId);
   }, [open]);
-
+  
   function onKey(e) {
     if (e.key === 'Escape') setOpen(false);
   }
@@ -95,6 +104,32 @@ function ImageWithModal({ src, alt, className = 'w-[72%] max-w-[220px] h-36 mx-a
     if (open) window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [open]);
+
+  // El JSX del Modal que será "teletransportado"
+  const modalJsx = open && createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      className={`fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80 p-4 transition-opacity duration-300 ease-out ${isShowing ? 'opacity-100' : 'opacity-0'}`}
+      onClick={() => setOpen(false)}
+    >
+      <div
+        className={`transform transition-all duration-300 ease-out ${isShowing ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="relative bg-black rounded max-w-[95%] max-h-[95%]">
+          <button onClick={() => setOpen(false)} aria-label="Cerrar" className="absolute top-2 right-2 z-10 rounded-full bg-black/50 text-white p-1.5 hover:bg-black/75 transition-colors">
+            <svg className="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+          <img src={src} alt={alt} onError={handleImgError} className="max-w-[95vw] max-h-[95vh] object-contain block mx-auto" />
+        </div>
+        <div className="text-center text-sm text-gray-200 mt-3">{alt}</div>
+      </div>
+    </div>,
+    document.body
+  );
 
   return (
     <>
@@ -106,30 +141,7 @@ function ImageWithModal({ src, alt, className = 'w-[72%] max-w-[220px] h-36 mx-a
       >
         <img src={src} alt={alt} loading="lazy" onError={handleImgError} className={`${imgClass} w-full h-full`} />
       </button>
-
-      {open && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className={`fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80 p-4 transition-opacity duration-300 ease-out ${isShowing ? 'opacity-100' : 'opacity-0'}`}
-          onClick={() => setOpen(false)}
-        >
-          <div
-            className={`transform transition-all duration-300 ease-out ${isShowing ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}`}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="relative bg-black rounded max-w-[95%] max-h-[95%]">
-              <button onClick={() => setOpen(false)} aria-label="Cerrar" className="absolute top-2 right-2 z-10 rounded-full bg-black/50 text-white p-1.5 hover:bg-black/75 transition-colors">
-                <svg className="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-              <img src={src} alt={alt} onError={handleImgError} className="max-w-[95vw] max-h-[95vh] object-contain block mx-auto" />
-            </div>
-            <div className="text-center text-sm text-gray-200 mt-3">{alt}</div>
-          </div>
-        </div>
-      )}
+      {modalJsx}
     </>
   );
 }
@@ -387,7 +399,6 @@ function DulceriaApp() {
                         <div className="text-base sm:text-lg font-bold">{moneyFmt.format(p.price || 0)}</div>
                         
                         <div className="flex justify-end items-center gap-3 mt-2">
-                          {/* INICIO DE LA CORRECCIÓN: Selector de cantidad con nuevo estilo */}
                           <div className="flex items-center gap-2">
                             <button onClick={() => decrementQuantity(p.id)} className="w-6 h-6 rounded-full bg-gray-200 hover:bg-gray-300 text-gray-700 flex items-center justify-center text-lg leading-none transition-colors">-</button>
                             <input
@@ -400,7 +411,6 @@ function DulceriaApp() {
                             />
                             <button onClick={() => incrementQuantity(p.id)} className="w-6 h-6 rounded-full bg-gray-200 hover:bg-gray-300 text-gray-700 flex items-center justify-center text-lg leading-none transition-colors">+</button>
                           </div>
-                          {/* FIN DE LA CORRECCIÓN */}
                           <button onClick={() => { addToCart(p, quantities[p.id] || 1); triggerConfetti(); }} className="px-3 py-2 bg-pink-500 text-white rounded-md text-sm hover:bg-pink-600 transition-colors">
                             Agregar
                           </button>
