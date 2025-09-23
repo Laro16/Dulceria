@@ -203,7 +203,7 @@ function DulceriaApp() {
   return (
     <div className="min-h-screen bg-gray-50 text-gray-800">
      {/* left: logo + title */}
-<div className="flex items-center gap-2 sm:gap-3 min-w-0"> {/* Reducimos el espacio a 'gap-2' en móvil */}
+<div className="flex items-center gap-2 sm:gap-3 min-w-0">
   {/* logo grande (no en círculo) */}
   <div className="flex-shrink-0">
     <img
@@ -215,6 +215,18 @@ function DulceriaApp() {
       style={{ display: logoVisible ? 'block' : 'none' }}
     />
   </div>
+
+  {/* fallback: si logo no existe, mostrar texto grande */}
+  {!logoVisible && (
+    <div className="text-xl font-bold select-none">Dulcería La Fiesta</div>
+  )}
+
+  {/* título pequeño (no la línea con ./src) */}
+  <div className="truncate">
+    <div className="text-sm sm:text-lg font-semibold truncate">La Fiesta</div>
+    <div className="text-xs text-gray-500 truncate">Dulces y sorpresas</div>
+  </div>
+</div>
 
   {/* fallback: si logo no existe, mostrar texto grande */}
   {!logoVisible && (
