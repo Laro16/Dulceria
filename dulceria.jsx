@@ -202,19 +202,32 @@ function DulceriaApp() {
   /* ---------- UI ---------- */
   return (
     <div className="min-h-screen bg-gray-50 text-gray-800">
-      {/* Header */}
-      <header className="sticky top-0 z-50 shadow-sm">
-        <div className="bg-gradient-to-r from-pink-500 via-pink-400 to-rose-200">
-          <div className="max-w-6xl mx-auto px-3 sm:px-4 py-3 flex items-center justify-between">
-            <div className="flex items-center gap-4 min-w-0">
-              <div className="flex-shrink-0">
-                <img src="./src/logo.png" alt="Dulcería La Fiesta" onError={e => { e.target.style.display = 'none'; }} className="h-12 sm:h-14 object-contain" />
-              </div>
-              <div className="truncate text-white">
-                <div className="text-lg sm:text-xl font-bold leading-tight">Dulcería La Fiesta</div>
-                <div className="text-xs sm:text-sm opacity-90">Dulces y sorpresas</div>
-              </div>
-            </div>
+     {/* left: logo + title */}
+<div className="flex items-center gap-2 sm:gap-3 min-w-0"> {/* Reducimos el espacio a 'gap-2' en móvil */}
+  {/* logo grande (no en círculo) */}
+  <div className="flex-shrink-0">
+    <img
+      src="./src/logo.png"
+      alt="Dulcería La Fiesta"
+      onLoad={() => setLogoVisible(true)}
+      onError={(e) => { setLogoVisible(false); e.target.style.display = 'none'; }}
+      className="h-10 sm:h-12 object-contain"
+      style={{ display: logoVisible ? 'block' : 'none' }}
+    />
+  </div>
+
+  {/* fallback: si logo no existe, mostrar texto grande */}
+  {!logoVisible && (
+    <div className="text-xl font-bold select-none">Dulcería La Fiesta</div>
+  )}
+
+  {/* título pequeño (no la línea con ./src) */}
+  <div className="truncate">
+    {/* Hacemos el título un poco más pequeño en móvil con 'text-sm' */}
+    <div className="text-sm sm:text-lg font-semibold truncate">La Fiesta</div>
+    <div className="text-xs text-gray-500 truncate">Dulces y sorpresas</div>
+  </div>
+</div>
 
             <div className="flex items-center gap-3">
               <select aria-label="Ordenar productos" value={order} onChange={e => { setOrder(e.target.value); setPage(1); }} className="text-sm rounded px-2 py-1 bg-white/90">
