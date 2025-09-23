@@ -293,7 +293,7 @@ function DulceriaApp() {
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {visibleProducts.map(p => (
                 <article key={p.id} className="bg-white rounded shadow-sm overflow-hidden flex flex-col">
-                  <ImageWithModal src={p.image || `./src/${slugify(p.name)}.jpg`} alt={p.name} className="w-[72%] max-w-[220px] h-36 mx-auto mt-3" imgClass="object-contain" />
+                  <ImageWithModal src={p.image || `./src/${slugify(p.name)}.jpg`} alt={p.name} className="w-[65%] max-w-[200px] h-36 mx-auto mt-3" imgClass="object-contain" />
                   <div className="p-3 flex-1 flex flex-col">
                     <h3 className="font-semibold text-sm sm:text-base truncate">{p.name}</h3>
                     <p className="text-xs sm:text-sm text-gray-500 flex-1">{p.short || p.description}</p>
