@@ -212,7 +212,6 @@ function DulceriaApp() {
       <header className="bg-white shadow sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-3 sm:px-4 py-3 flex items-center justify-between">
           
-          {/* INICIO DE LA CORRECCIÓN */}
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             {/* logo grande (no en círculo) */}
             <div className="flex-shrink-0">
@@ -237,20 +236,22 @@ function DulceriaApp() {
               <div className="text-xs text-gray-500 truncate">Dulces y sorpresas</div>
             </div>
           </div>
-          {/* FIN DE LA CORRECCIÓN */}
 
           {/* right: nav (hidden on mobile) + cart */}
           <div className="flex items-center gap-3">
-            <nav className="hidden md:flex gap-3 items-center mr-2">
+            
+            {/* INICIO DE LA CORRECCIÓN: BARRA DESLIZABLE */}
+            <nav className="flex gap-2 md:gap-3 items-center mr-2 overflow-x-auto whitespace-nowrap md:overflow-x-visible">
               {categories.map(c => (
-                <button key={c} className={`px-3 py-2 rounded ${category === c ? 'bg-pink-100 text-pink-700' : 'hover:bg-gray-100'}`} onClick={() => setCategory(c)}>
+                <button key={c} className={`px-3 py-2 rounded text-sm ${category === c ? 'bg-pink-100 text-pink-700' : 'hover:bg-gray-100'}`} onClick={() => setCategory(c)}>
                   {c}
                 </button>
               ))}
             </nav>
+            {/* FIN DE LA CORRECCIÓN */}
 
             {/* carrito: intenta usar ./src/carrito.png; si falla, muestra SVG fallback */}
-            <button onClick={() => setCartOpen(true)} className="relative p-2 rounded-md bg-white hover:bg-gray-50" aria-label="Abrir carrito">
+            <button onClick={() => setCartOpen(true)} className="relative p-2 rounded-md bg-white hover:bg-gray-50 flex-shrink-0" aria-label="Abrir carrito">
               <img
                 src="./src/carrito.png"
                 alt="Carrito"
