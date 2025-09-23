@@ -1,7 +1,6 @@
 /* dulceria.jsx
    Actualizado:
-   - Se corrigió un error de sintaxis que causaba la página en blanco.
-   - Se corrigió el layout de los controles del producto para que el botón "Agregar" ocupe el espacio restante y nunca se desborde.
+   - Se rediseñó el control de cantidad y el botón "Agregar" como un grupo compacto para solucionar el desbordamiento en vistas de 2 columnas.
 */
 
 const { useState, useMemo, useEffect } = React;
@@ -43,9 +42,7 @@ const moneyFmt = new Intl.NumberFormat('es-GT', { style: 'currency', currency: '
 
 /* Image + modal */
 function ImageWithModal({ src, alt, className = 'w-[72%] max-w-[220px] h-36 mx-auto', imgClass = 'object-contain' }) {
-  // INICIO DE LA CORRECCIÓN
   const [open, setOpen] = useState(false);
-  // FIN DE LA CORRECCIÓN
 
   useEffect(() => {
     function onKey(e) { if (e.key === 'Escape') setOpen(false); }
@@ -330,23 +327,27 @@ function DulceriaApp() {
                     <div className="mt-3 space-y-2">
                       <div className="text-base sm:text-lg font-bold">{moneyFmt.format(p.price || 0)}</div>
                       
-                      <div className="flex items-stretch gap-2">
-                        <div className="flex items-center border rounded flex-shrink-0">
-                           <button onClick={() => decrementQuantity(p.id)} className="px-2 py-1 text-lg leading-none border-r">-</button>
-                           <input
-                             type="text"
-                             inputMode="numeric"
-                             aria-label={`Cantidad para ${p.name}`}
-                             value={quantities[p.id] || 1}
-                             onChange={(e) => handleQuantityChange(p.id, e.target.value)}
-                             className="w-10 text-center border-none text-sm bg-transparent"
-                           />
-                           <button onClick={() => incrementQuantity(p.id)} className="px-2 py-1 text-lg leading-none border-l">+</button>
+                      {/* INICIO DE LA CORRECCIÓN */}
+                      <div className="flex justify-end">
+                        <div className="flex items-stretch">
+                          <div className="flex items-center border border-gray-300 rounded-l-md">
+                             <button onClick={() => decrementQuantity(p.id)} className="px-1.5 text-lg leading-none">-</button>
+                             <input
+                               type="text"
+                               inputMode="numeric"
+                               aria-label={`Cantidad para ${p.name}`}
+                               value={quantities[p.id] || 1}
+                               onChange={(e) => handleQuantityChange(p.id, e.target.value)}
+                               className="w-8 text-center border-none text-sm bg-transparent"
+                             />
+                             <button onClick={() => incrementQuantity(p.id)} className="px-1.5 text-lg leading-none">+</button>
+                          </div>
+                          <button onClick={() => { addToCart(p, quantities[p.id] || 1); triggerConfetti(); }} className="px-2 py-1 bg-pink-500 text-white rounded-r-md text-sm border border-pink-500">
+                            Agregar
+                          </button>
                         </div>
-                        <button onClick={() => { addToCart(p, quantities[p.id] || 1); triggerConfetti(); }} className="px-3 py-1 bg-pink-500 text-white rounded text-sm sm:text-sm flex-grow text-center">
-                          Agregar
-                        </button>
                       </div>
+                      {/* FIN DE LA CORRECCIÓN */}
 
                     </div>
                   </div>
